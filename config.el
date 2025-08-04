@@ -21,8 +21,8 @@
 ;; See 'C-h v doom-font' for documentation and more examples of what they
 ;; accept. For example:
 ;;
-;;(setq doom-font (font-spec :family "Fira Code" :size 12 :weight 'semi-light)
-;;      doom-variable-pitch-font (font-spec :family "Fira Sans" :size 13))
+(setq doom-font (font-spec :family "Fira Code" :size 15 :weight 'semi-light)
+      doom-variable-pitch-font (font-spec :family "Fira Sans" :size 15))
 ;;
 ;; If you or Emacs can't find your font, use 'M-x describe-font' to look them
 ;; up, `M-x eval-region' to execute elisp code, and 'M-x doom/reload-font' to
@@ -34,6 +34,7 @@
 ;; `load-theme' function. This is the default:
 ;;(setq doom-theme 'doom-one)
 (setq doom-theme 'doom-nord)
+;; (setq doom-theme 'doom-earl-grey)
 
 ;; This determines the style of line numbers in effect. If set to `nil', line
 ;; numbers are disabled. For relative line numbers, set this to `relative'.
@@ -111,21 +112,5 @@
 (after! popup
   (set-popup-rule! "^\\*vterm\\*" :ignore t))
 
-(defun my/display-in-right-window (buffer _alist)
-  "Display BUFFER in the right-hand window.
-   If only one window is present, it is split vertically.
-   If multiple windows are present, the right-most one is used."
-  (let ((target-window
-         (if (one-window-p t)
-             (split-window-right)
-           (let ((win (frame-root-window)))
-             ;; Traverse right until we can't anymore
-             (while (window-in-direction 'right win)
-               (setq win (window-in-direction 'right win)))
-             win))))
-    (window-set-buffer target-window buffer)
-    target-window))
-
-;; Add our custom display action to the end of the list, so it acts as a fallback.
-(add-to-list 'display-buffer-alist
-             '(t (my/display-in-right-window)) t)
+;; maximize emacs on startup
+(add-to-list 'initial-frame-alist '(fullscreen . maximized))
