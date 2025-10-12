@@ -93,14 +93,22 @@
 ;; kill evil snipe mode
 (remove-hook 'doom-first-input-hook #'evil-snipe-mode)
 
-;; evil configs
+;; Configure Evil to treat symbols as words for movement and search operations.
 ;;
-;; use symbols instead of word boundaries
-;; https://emacs.stackexchange.com/questions/9583/how-to-treat-underscore-as-part-of-the-word
-;; viw -> marks symbol
+;; This changes the behavior of:
+;;   - Word movements (w, b, e) to move by symbol boundaries
+;;   - Word searches (*, #) to match entire symbols
+;;
+;; Symbols include any non-whitespace characters (letters, numbers, underscores, etc.)
+;; Example: "foo_bar" is treated as a single word rather than two separate words.
+;;
+;; References:
+;;   https://emacs.stackexchange.com/questions/9583/how-to-treat-underscore-as-part-of-the-word
+;;   :help evil-symbol-word-search
 (with-eval-after-load 'evil
+  ;; Alias forward-evil-word to forward-evil-symbol so word movements use symbol boundaries
   (defalias #'forward-evil-word #'forward-evil-symbol)
-  ;; make evil-search-word look for symbol rather than word boundaries
+  ;; Enable symbol-based word searching so */# match entire symbols
   (setq-default evil-symbol-word-search t))
 
 
