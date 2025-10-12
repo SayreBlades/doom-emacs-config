@@ -79,10 +79,15 @@
 ;; they are implemented.
 
 
-;; make the command key interpreted as ctrl - assuming mac command key
+;; Remap modifier keys for macOS:
+;;   - Set Command (⌘) key to function as Control key for Emacs shortcuts
+;;   - Physical Control (⌃) key remains as Control key by default
+;;
+;; This makes common Emacs shortcuts (like C-c/C-v) accessible via Command key.
+;; Uncomment the second line to make Control key function as Meta/Alt instead.
 (setq
- ns-command-modifier 'control
- ;; ns-control-modifier 'meta
+ ns-command-modifier 'control    ; Command key → Control
+ ;; ns-control-modifier 'meta   ; Uncomment to make Control key → Meta
  )
 
 ;; kill evil snipe mode
