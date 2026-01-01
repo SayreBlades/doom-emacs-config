@@ -128,3 +128,142 @@
 
 ;; maximize emacs on startup
 (add-to-list 'initial-frame-alist '(fullscreen . maximized))
+
+;; ============================================================================
+;; pi.el - Emacs frontend for pi coding agent
+;; ============================================================================
+(use-package! pi
+  :load-path "~/.config/doom/site-lisp/pi.el"
+  :commands (pi)
+  :init
+  ;; Leader key binding to start pi
+  (map! :leader
+        :desc "Pi coding agent" "o p" #'pi)
+  :config
+  ;; Set appropriate evil states for each mode
+  (after! evil
+    (evil-set-initial-state 'pi-chat-mode 'motion)
+    (evil-set-initial-state 'pi-input-mode 'insert))
+
+  ;; Mark pi buffers as "real" so they appear in workspace buffer lists
+  (add-hook 'pi-chat-mode-hook (lambda () (setq doom-real-buffer-p t)))
+  (add-hook 'pi-input-mode-hook (lambda () (setq doom-real-buffer-p t)))
+
+  ;; Add mode-line click support to pi's header keymaps
+  (define-key pi--header-model-map [mode-line mouse-1] #'pi-select-model)
+  (define-key pi--header-model-map [mode-line mouse-2] #'pi-select-model)
+  (define-key pi--header-thinking-map [mode-line mouse-1] #'pi-cycle-thinking)
+  (define-key pi--header-thinking-map [mode-line mouse-2] #'pi-cycle-thinking)
+
+  ;; Helper to right-align mode-line content
+  (defun my/mode-line-fill (reserve)
+    "Return empty space leaving RESERVE space on the right."
+    (propertize " "
+                'display `((space :align-to (- (+ right right-fringe right-margin) ,reserve)))))
+
+  ;; Custom mode-line for chat buffer with pi status on the right
+  (add-hook 'pi-chat-mode-hook
+            (lambda ()
+              (setq-local header-line-format nil)  ; Remove header-line
+              (setq-local mode-line-format
+                          '("%e"
+                            mode-line-front-space
+                            mode-line-buffer-identification
+                            ;; Fill space to push pi info to the right
+                            (:eval (my/mode-line-fill
+                                    (string-width (or (pi--header-line-string) ""))))
+                            ;; Pi info (model, thinking, stats)
+                            (:eval (pi--header-line-string))))))
+
+  ;; Remove header-line from input buffer
+  (add-hook 'pi-input-mode-hook
+            (lambda ()
+              (setq-local header-line-format nil)))
+
+  ;; Override display to only show chat initially
+  (defadvice! my/pi-display-chat-only (chat-buf _input-buf)
+    :override #'pi--display-buffers
+    (switch-to-buffer chat-buf)
+    (with-current-buffer chat-buf
+      (goto-char (point-max))))
+
+  ;; Command to open input as a split within the chat window
+  (defun my/pi-open-input ()
+    "Open the pi input buffer in a split below the chat buffer.
+If the input buffer is already visible, select its window instead."
+    (interactive)
+    (when-let ((input-buf (pi--get-input-buffer)))
+      (if-let ((existing-win (get-buffer-window input-buf)))
+          (select-window existing-win)
+        (let ((input-win (split-window-below -10)))
+          (set-window-buffer input-win input-buf)
+          (select-window input-win)))))
+
+  ;; Close input window after sending
+  (defadvice! my/pi-send-close-input (&rest _)
+    :after #'pi-send
+    (when-let ((win (get-buffer-window (current-buffer))))
+      (when (and (window-parent win)
+                 (derived-mode-p 'pi-input-mode))
+        (delete-window win))))
+
+  ;; Close input window with q in normal mode
+  (defun my/pi-close-input ()
+    "Close the input window and return to chat."
+    (interactive)
+    (when-let ((win (get-buffer-window (current-buffer))))
+      (delete-window win)))
+
+  ;; Wrap pi-quit with confirmation prompt
+  (defadvice! my/pi-quit-confirm (&rest args)
+    :before-while #'pi-quit
+    (yes-or-no-p "Really quit Pi session? "))
+
+  ;; Chat buffer bindings (motion state - read-only buffer)
+  (map! :map pi-chat-mode-map
+        :m "q"     #'pi-quit
+        :m "?"     #'pi-menu
+        :m "i"     #'my/pi-open-input  ; open input popup
+        :m "C-k"   #'pi-abort
+        :m "C-r"   #'pi-resume-session
+        :m "C-p"   #'pi-menu
+        )
+
+  ;; Input buffer bindings (matches pi-menu transient commands)
+  (map! :map pi-input-mode-map
+        ;; Normal state
+        :n "q" #'my/pi-close-input
+        :n "?" #'pi-menu
+        ;; Session
+        :n "C-n"   #'pi-new-session
+        :n "C-r"   #'pi-resume-session
+        :n "C-e"   #'pi-export-html
+        ;; Context
+        :n "C-c"   #'pi-compact
+        :n "C-b"   #'pi-branch
+        ;; Model
+        :n "C-m"   #'pi-select-model
+        :n "C-t"   #'pi-cycle-thinking
+        ;; Info
+        :n "C-s"   #'pi-session-stats
+        :n "C-y"   #'pi-copy-last-message
+        ;; Actions
+        :n "<return>" #'pi-send
+        :n "RET"   #'pi-send
+        :n "C-k"   #'pi-abort
+        ;; Both states
+        ;; :ni "C-c C-k" #'pi-abort
+        ;; :ni "C-c C-p" #'pi-menu
+        ;; :ni "C-c C-r" #'pi-resume-session
+        )
+
+  ;; Helper to look up keys from pi-input-mode-map for transient menu
+  (defun my/pi-key (cmd)
+    "Get key string bound to CMD in pi-input-mode's evil normal state map."
+    (let* ((state-map (evil-get-auxiliary-keymap pi-input-mode-map 'normal t))
+           (key (when state-map (where-is-internal cmd state-map nil t))))
+      (if key
+          (key-description key)
+        "?")))
+
+  )
