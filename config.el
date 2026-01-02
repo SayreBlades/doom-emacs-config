@@ -180,6 +180,15 @@
             (lambda ()
               (setq-local header-line-format nil)))
 
+  ;; Fix spinner: also update chat buffer mode-line (where we moved it)
+  (defadvice! my/pi-spinner-update-chat (&rest _)
+    :after #'pi--spinner-tick
+    (dolist (buf pi--spinning-sessions)
+      (when (buffer-live-p buf)
+        (dolist (win (get-buffer-window-list buf nil t))
+          (with-selected-window win
+            (force-mode-line-update))))))
+
   ;; Override display to only show chat initially
   (defadvice! my/pi-display-chat-only (chat-buf _input-buf)
     :override #'pi--display-buffers
@@ -221,40 +230,50 @@ If the input buffer is already visible, select its window instead."
 
   ;; Chat buffer bindings (motion state - read-only buffer)
   (map! :map pi-chat-mode-map
-        :m "q"     #'pi-quit
-        :m "?"     #'pi-menu
-        :m "i"     #'my/pi-open-input  ; open input popup
-        :m "C-k"   #'pi-abort
-        :m "C-r"   #'pi-resume-session
-        :m "C-p"   #'pi-menu
+        ;; Actions
+        :m "i"         #'my/pi-open-input  ; open input popup
+        :m "q"         #'pi-quit
+        :m "?"         #'pi-menu
+        :m "C-c C-p"   #'pi-menu
+        :m "<escape>"  #'pi-abort
+        :m "ESC"       #'pi-abort
+        :m "C-c C-k"   #'pi-abort
+        ;; Session
+        :m "C-c C-n"   #'pi-new-session
+        :m "C-c C-r"   #'pi-resume-session
+        :m "C-c C-e"   #'pi-export-html
+        ;; Context
+        :m "C-c C-c"   #'pi-compact
+        :m "C-c C-b"   #'pi-branch
+        ;; Model
+        :m "C-c C-m"   #'pi-select-model
+        :m "C-c C-t"   #'pi-cycle-thinking
+        ;; Info
+        :m "C-c C-s"   #'pi-session-stats
+        :m "C-c C-y"   #'pi-copy-last-message
         )
 
   ;; Input buffer bindings (matches pi-menu transient commands)
   (map! :map pi-input-mode-map
-        ;; Normal state
-        :n "q" #'my/pi-close-input
-        :n "?" #'pi-menu
-        ;; Session
-        :n "C-n"   #'pi-new-session
-        :n "C-r"   #'pi-resume-session
-        :n "C-e"   #'pi-export-html
-        ;; Context
-        :n "C-c"   #'pi-compact
-        :n "C-b"   #'pi-branch
-        ;; Model
-        :n "C-m"   #'pi-select-model
-        :n "C-t"   #'pi-cycle-thinking
-        ;; Info
-        :n "C-s"   #'pi-session-stats
-        :n "C-y"   #'pi-copy-last-message
         ;; Actions
-        :n "<return>" #'pi-send
-        :n "RET"   #'pi-send
-        :n "C-k"   #'pi-abort
-        ;; Both states
-        ;; :ni "C-c C-k" #'pi-abort
-        ;; :ni "C-c C-p" #'pi-menu
-        ;; :ni "C-c C-r" #'pi-resume-session
+        :n "q"         #'my/pi-close-input
+        :n "?"         #'pi-menu
+        :n "C-c C-k"   #'pi-abort
+        :n "<return>"  #'pi-send
+        :n "RET"       #'pi-send
+        ;; Session
+        :n "C-c C-n"   #'pi-new-session
+        :n "C-c C-r"   #'pi-resume-session
+        :n "C-c C-e"   #'pi-export-html
+        ;; Context
+        :n "C-c C-c"   #'pi-compact
+        :n "C-c C-b"   #'pi-branch
+        ;; Model
+        :n "C-c C-m"   #'pi-select-model
+        :n "C-c C-t"   #'pi-cycle-thinking
+        ;; Info
+        :n "C-c C-s"   #'pi-session-stats
+        :n "C-c C-y"   #'pi-copy-last-message
         )
 
   ;; Helper to look up keys from pi-input-mode-map for transient menu
@@ -264,6 +283,4 @@ If the input buffer is already visible, select its window instead."
            (key (when state-map (where-is-internal cmd state-map nil t))))
       (if key
           (key-description key)
-        "?")))
-
-  )
+        "?"))))
