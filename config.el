@@ -22,7 +22,8 @@
 ;; accept. For example:
 ;;
 (setq doom-font (font-spec :family "Fira Code" :size 15 :weight 'semi-light)
-      doom-variable-pitch-font (font-spec :family "Fira Sans" :size 15))
+      doom-variable-pitch-font (font-spec :family "Fira Sans" :size 15)
+      doom-symbol-font (font-spec :family "Apple Symbols"))
 ;;
 ;; If you or Emacs can't find your font, use 'M-x describe-font' to look them
 ;; up, `M-x eval-region' to execute elisp code, and 'M-x doom/reload-font' to
@@ -44,6 +45,12 @@
 ;; If you use `org' and don't want your org files in the default location below,
 ;; change `org-directory'. It must be set before org loads!
 (setq org-directory "~/org/")
+
+;; Fix org-modern fold stars: replace Level 3 chars (⯈/⯆ U+2BC8/2BC6) which
+;; are missing from nearly all installed fonts, with glyphs Apple Symbols has.
+(after! org-modern
+  (setq org-modern-fold-stars
+        '(("▶" . "▼") ("▷" . "▽") ("▸" . "▾") ("▹" . "▿") ("▸" . "▾"))))
 
 
 ;; Whenever you reconfigure a package, make sure to wrap your config in an
