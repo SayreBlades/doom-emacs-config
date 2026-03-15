@@ -34,7 +34,8 @@
 ;; available. You can either set `doom-theme' or manually load a theme with the
 ;; `load-theme' function. This is the default:
 ;;(setq doom-theme 'doom-one)
-(setq doom-theme 'doom-nord)
+(setq doom-theme 'doom-nord-light)
+;; (setq doom-theme 'doom-nord)
 ;; (setq doom-theme 'doom-earl-grey)
 ;; (setq doom-theme 'doom-zenburn)
 
