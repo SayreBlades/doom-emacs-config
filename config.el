@@ -132,7 +132,11 @@
 
 ;; remove vterm from popups
 (after! popup
-  (set-popup-rule! "^\\*vterm\\*" :ignore t))
+  (set-popup-rule! "^\\*vterm\\*" :ignore t)
+  (set-popup-rule! "^\\*PLANTUML" :ignore t))
+
+;; associate .puml files with plantuml-mode
+(add-to-list 'auto-mode-alist '("\\.puml\\'" . plantuml-mode))
 
 ;; maximize emacs on startup
 (add-to-list 'initial-frame-alist '(fullscreen . maximized))
