@@ -47,3 +47,9 @@
 ;; (unpin! pinned-package another-pinned-package)
 ;; ...Or *all* packages (NOT RECOMMENDED; will likely break things)
 ;; (unpin! t)
+
+;; pi-coding-agent dependencies (from MELPA, explicit recipes for straight.el)
+(package! md-ts-mode
+  :recipe (:host github :repo "dnouri/md-ts-mode"))
+(package! markdown-table-wrap
+  :recipe (:host github :repo "dnouri/markdown-table-wrap"))
