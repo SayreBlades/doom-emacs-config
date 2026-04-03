@@ -53,6 +53,12 @@
   (setq org-modern-fold-stars
         '(("▶" . "▼") ("▷" . "▽") ("▸" . "▾") ("▹" . "▿") ("▸" . "▾"))))
 
+;; ob-mermaid — org-babel execution for mermaid diagrams
+;; Requires: npm install -g @mermaid-js/mermaid-cli (provides mmdc)
+(after! org
+  (require 'ob-mermaid)
+  (setq ob-mermaid-cli-path "/opt/homebrew/bin/mmdc"))
+
 
 ;; Whenever you reconfigure a package, make sure to wrap your config in an
 ;; `after!' block, otherwise Doom's defaults may override your settings. E.g.

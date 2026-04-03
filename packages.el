@@ -48,6 +48,9 @@
 ;; ...Or *all* packages (NOT RECOMMENDED; will likely break things)
 ;; (unpin! t)
 
+;; ob-mermaid — org-babel support for mermaid diagrams (requires mmdc on PATH)
+(package! ob-mermaid)
+
 ;; pi-coding-agent dependencies (from MELPA, explicit recipes for straight.el)
 (package! md-ts-mode
   :recipe (:host github :repo "dnouri/md-ts-mode"))
