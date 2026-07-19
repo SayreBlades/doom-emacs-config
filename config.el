@@ -220,17 +220,15 @@
   (add-hook 'pi-coding-agent-chat-mode-hook (lambda () (setq doom-real-buffer-p t)))
   (add-hook 'pi-coding-agent-input-mode-hook (lambda () (setq doom-real-buffer-p t)))
 
+  ;; Yank/copy from chat buffers as raw markdown (keeps fences and markup)
+  (setq pi-coding-agent-copy-raw-markdown t)
+
   ;; Close input window with q in normal mode
   (defun my/pi-close-input ()
     "Close the input window and return to chat."
     (interactive)
     (when-let ((win (get-buffer-window (current-buffer))))
       (delete-window win)))
-
-  ;; Wrap pi-quit with confirmation prompt
-  (defadvice! my/pi-quit-confirm (&rest args)
-    :before-while #'pi-coding-agent-quit
-    (yes-or-no-p "Really quit Pi session? "))
 
   ;; Chat buffer bindings (motion state - read-only buffer)
   (map! :map pi-coding-agent-chat-mode-map
