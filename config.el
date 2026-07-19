@@ -155,189 +155,18 @@
   :load-path "~/.config/doom/site-lisp/pi.el"
   :commands (pi-coding-agent)
   :init
-  ;; Auto-detect truman projects: if .devcontainer/truman.sh exists,
-  ;; route pi through the sandboxed container; otherwise run natively.
-  ;; Uses setq (not let) so the async version probe sees the right value.
-  (defun my/pi-maybe-truman ()
-    "Start pi-coding-agent, prompting for truman when available."
-    (interactive)
-    (let* ((dir (or (when-let ((proj (project-current)))
-                      (project-root proj))
-                    default-directory))
-           (truman-sh (expand-file-name ".devcontainer/truman.sh" dir)))
-      (setq pi-coding-agent-executable
-            (if (and (file-executable-p truman-sh)
-                     (y-or-n-p "Truman devcontainer detected. Run sandboxed? "))
-                (list truman-sh "run-pi" "-T")
-              '("pi"))))
-    (call-interactively #'pi-coding-agent))
-
-  ;; Fix executable-find check for relative paths (e.g. .devcontainer/truman.sh).
-  ;; The upstream check only searches PATH; we also resolve against default-directory.
-  ;; NB: upstream `pi-coding-agent--check-pi' now takes an optional DIRECTORY
-  ;; argument (used to bind `default-directory'); the override must accept it too,
-  ;; or callers like `pi-coding-agent--check-dependencies' error with
-  ;; "Wrong number of arguments".
-  (advice-add 'pi-coding-agent--check-pi :override
-              (lambda (&optional directory)
-                (let* ((directory (or directory default-directory))
-                       (default-directory directory)
-                       (cmd (car pi-coding-agent-executable)))
-                  (or (executable-find cmd)
-                      (file-executable-p (expand-file-name cmd directory))))))
-
-  ;; Leader key binding to start pi
   (map! :leader
-        :desc "Pi coding agent" "o p" #'my/pi-maybe-truman)
-
-  ;; Command to open input as a split within the chat window
-  (defun my/pi-open-input ()
-    "Open the pi input buffer in a split below the chat buffer.
-     If the input buffer is already visible, select its window instead."
-    (interactive)
-    (when-let ((input-buf (pi-coding-agent--get-input-buffer)))
-      (if-let ((existing-win (get-buffer-window input-buf)))
-          (select-window existing-win)
-        (let ((input-win (split-window-below -10)))
-          (set-window-buffer input-win input-buf)
-          (select-window input-win)))))
-
-  ;; Close input window after sending
+        :desc "Pi coding agent" "o p" #'pi-coding-agent)
+  (setq pi-coding-agent-evil-input-state 'normal)
   (defadvice! my/pi-send-close-input (&rest _)
     :after #'pi-coding-agent-send
     (when-let ((win (get-buffer-window (current-buffer))))
       (when (and (window-parent win)
                  (derived-mode-p 'pi-coding-agent-input-mode))
         (delete-window win))))
-
   :config
-  ;; Set appropriate evil states for each mode
-  (after! evil
-    (evil-set-initial-state 'pi-coding-agent-chat-mode 'motion)
-    (evil-set-initial-state 'pi-coding-agent-input-mode 'insert))
-
-  ;; Mark pi buffers as "real" so they appear in workspace buffer lists
   (add-hook 'pi-coding-agent-chat-mode-hook (lambda () (setq doom-real-buffer-p t)))
-  (add-hook 'pi-coding-agent-input-mode-hook (lambda () (setq doom-real-buffer-p t)))
-
-  ;; Yank/copy from chat buffers as raw markdown (keeps fences and markup)
-  (setq pi-coding-agent-copy-raw-markdown t)
-
-  ;; Close input window with q in normal mode
-  (defun my/pi-close-input ()
-    "Close the input window and return to chat."
-    (interactive)
-    (when-let ((win (get-buffer-window (current-buffer))))
-      (delete-window win)))
-
-  ;; Chat buffer bindings (motion state - read-only buffer)
-  (map! :map pi-coding-agent-chat-mode-map
-        ;; Actions
-        :m [tab]       #'pi-coding-agent-toggle-tool-section
-        :m "TAB"       #'pi-coding-agent-toggle-tool-section
-        :m "i"         #'my/pi-open-input  ; open input popup
-        :m "q"         #'pi-coding-agent-quit
-        :m "?"         #'pi-coding-agent-menu
-        :m "C-c C-p"   #'pi-coding-agent-menu
-        ;; :m "<escape>"  #'pi-coding-agent-abort
-        ;; :m "ESC"       #'pi-coding-agent-abort
-        :m "C-c C-k"   #'pi-coding-agent-abort
-        ;; Session
-        :m "C-c C-n"   #'pi-coding-agent-new-session
-        :m "C-c C-r"   #'pi-coding-agent-resume-session
-        :m "C-c C-e"   #'pi-coding-agent-export-html
-        ;; Context
-        :m "C-c C-c"   #'pi-coding-agent-compact
-        :m "C-c C-b"   #'pi-coding-agent-fork-at-point
-        ;; Model
-        :m "C-c C-m"   #'pi-coding-agent-select-model
-        :m "C-c C-t"   #'pi-coding-agent-cycle-thinking
-        ;; Info
-        :m "C-c C-s"   #'pi-coding-agent-session-stats
-        :m "C-c C-y"   #'pi-coding-agent-copy-last-message
-        )
-
-  ;; Input buffer bindings (matches pi-menu transient commands)
-  (map! :map pi-coding-agent-input-mode-map
-        ;; Actions
-        :n "q"         #'my/pi-close-input
-        :n "?"         #'pi-coding-agent-menu
-        :n "C-c C-k"   #'pi-coding-agent-abort
-        :n "<return>"  #'pi-coding-agent-send
-        :n "RET"       #'pi-coding-agent-send
-        ;; Session
-        :n "C-c C-n"   #'pi-coding-agent-new-session
-        :n "C-c C-r"   #'pi-coding-agent-resume-session
-        :n "C-c C-e"   #'pi-coding-agent-export-html
-        ;; Context
-        :n "C-c C-c"   #'pi-coding-agent-compact
-        :n "C-c C-b"   #'pi-coding-agent-fork-at-point
-        ;; Model
-        :n "C-c C-m"   #'pi-coding-agent-select-model
-        :n "C-c C-t"   #'pi-coding-agent-cycle-thinking
-        ;; Info
-        :n "C-c C-s"   #'pi-coding-agent-session-stats
-        :n "C-c C-y"   #'pi-coding-agent-copy-last-message
-        )
-
-
-  )
-
-;;   ;; Add mode-line click support to pi's header keymaps
-;;   (define-key pi-coding-agent--header-model-map [mode-line mouse-1] #'pi-coding-agent-select-model)
-;;   (define-key pi-coding-agent--header-model-map [mode-line mouse-2] #'pi-coding-agent-select-model)
-;;   (define-key pi-coding-agent--header-thinking-map [mode-line mouse-1] #'pi-coding-agent-cycle-thinking)
-;;   (define-key pi-coding-agent--header-thinking-map [mode-line mouse-2] #'pi-coding-agent-cycle-thinking)
-
-;;   ;; Helper to right-align mode-line content
-;;   (defun my/mode-line-fill (reserve)
-;;     "Return empty space leaving RESERVE space on the right."
-;;     (propertize " "
-;;                 'display `((space :align-to (- (+ right right-fringe right-margin) ,reserve)))))
-
-;;   ;; Custom mode-line for chat buffer with pi status on the right
-;;   (add-hook 'pi-coding-agent-chat-mode-hook
-;;             (lambda ()
-;;               (setq-local header-line-format nil)  ; Remove header-line
-;;               (setq-local mode-line-format
-;;                           '("%e"
-;;                             mode-line-front-spac
-;;                             mode-line-buffer-identification
-;;                             ;; Fill space to push pi info to the right
-;;                             (:eval (my/mode-line-fill
-;;                                     (string-width (or (pi-coding-agent--header-line-string) ""))))
-;;                             ;; Pi info (model, thinking, stats)
-;;                             (:eval (pi-coding-agent--header-line-string))))))
-
-;;   ;; Remove header-line from input buffer
-;;   (add-hook 'pi-coding-agent-input-mode-hook
-;;             (lambda ()
-;;               (setq-local header-line-format nil)))
-
-;;   ;; Fix spinner: also update chat buffer mode-line (where we moved it)
-;;   (defadvice! my/pi-spinner-update-chat (&rest _)
-;;     :after #'pi-coding-agent--spinner-tick
-;;     (dolist (buf pi-coding-agent--spinning-sessions)
-;;       (when (buffer-live-p buf)
-;;         (dolist (win (get-buffer-window-list buf nil t))
-;;           (with-selected-window win
-;;             (force-mode-line-update))))))
-
-;;   ;; Override display to only show chat initially
-;;   (defadvice! my/pi-display-chat-only (chat-buf _input-buf)
-;;     :override #'pi-coding-agent--display-buffers
-;;     (switch-to-buffer chat-buf)
-;;     (with-current-buffer chat-buf
-;;       (goto-char (point-max))))
-
-;;   ;; Helper to look up keys from pi-coding-agent-input-mode-map for transient menu
-;;   (defun my/pi-key (cmd)
-;;     "Get key string bound to CMD in pi-coding-agent-input-mode's evil normal state map."
-;;     (let* ((state-map (evil-get-auxiliary-keymap pi-coding-agent-input-mode-map 'normal t))
-;;            (key (when state-map (where-is-internal cmd state-map nil t))))
-;;       (if key
-;;           (key-description key)
-;;         "?"))))
+  (add-hook 'pi-coding-agent-input-mode-hook (lambda () (setq doom-real-buffer-p t))))
 
 (defun pi-reload ()
   "Reload all pi-coding-agent modules from development directory."
@@ -350,6 +179,7 @@
                    "pi-coding-agent-render"
                    "pi-coding-agent-input"
                    "pi-coding-agent-menu"
-                   "pi-coding-agent"))
+                   "pi-coding-agent"
+                   "pi-coding-agent-evil"))
       (load (expand-file-name mod dir) nil t)))
   (message "Pi reloaded (all modules)"))
