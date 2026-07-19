@@ -136,8 +136,9 @@
 ;; turn off the "really quit emacs" prompt when closing emacs
 (setq confirm-kill-emacs nil)
 
-;; remove vterm from popups
+;; remove compile output from popups (SPC c c) -> use full window instead
 (after! popup
+  (set-popup-rule! "^\\*compilation\\*" :ignore t)
   (set-popup-rule! "^\\*vterm\\*" :ignore t)
   (set-popup-rule! "^\\*PLANTUML" :ignore t))
 
@@ -173,11 +174,17 @@
 
   ;; Fix executable-find check for relative paths (e.g. .devcontainer/truman.sh).
   ;; The upstream check only searches PATH; we also resolve against default-directory.
+  ;; NB: upstream `pi-coding-agent--check-pi' now takes an optional DIRECTORY
+  ;; argument (used to bind `default-directory'); the override must accept it too,
+  ;; or callers like `pi-coding-agent--check-dependencies' error with
+  ;; "Wrong number of arguments".
   (advice-add 'pi-coding-agent--check-pi :override
-              (lambda ()
-                (let ((cmd (car pi-coding-agent-executable)))
+              (lambda (&optional directory)
+                (let* ((directory (or directory default-directory))
+                       (default-directory directory)
+                       (cmd (car pi-coding-agent-executable)))
                   (or (executable-find cmd)
-                      (file-executable-p (expand-file-name cmd default-directory))))))
+                      (file-executable-p (expand-file-name cmd directory))))))
 
   ;; Leader key binding to start pi
   (map! :leader
@@ -243,7 +250,7 @@
         :m "C-c C-e"   #'pi-coding-agent-export-html
         ;; Context
         :m "C-c C-c"   #'pi-coding-agent-compact
-        :m "C-c C-b"   #'pi-coding-agent-branch
+        :m "C-c C-b"   #'pi-coding-agent-fork-at-point
         ;; Model
         :m "C-c C-m"   #'pi-coding-agent-select-model
         :m "C-c C-t"   #'pi-coding-agent-cycle-thinking
@@ -266,7 +273,7 @@
         :n "C-c C-e"   #'pi-coding-agent-export-html
         ;; Context
         :n "C-c C-c"   #'pi-coding-agent-compact
-        :n "C-c C-b"   #'pi-coding-agent-branch
+        :n "C-c C-b"   #'pi-coding-agent-fork-at-point
         ;; Model
         :n "C-c C-m"   #'pi-coding-agent-select-model
         :n "C-c C-t"   #'pi-coding-agent-cycle-thinking

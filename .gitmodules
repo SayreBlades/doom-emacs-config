@@ -1,0 +1,4 @@
+[submodule "site-lisp/pi.el"]
+	path = site-lisp/pi.el
+	url = git@github.com:dnouri/pi-coding-agent.git
+	branch = master
