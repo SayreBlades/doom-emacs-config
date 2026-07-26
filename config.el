@@ -152,12 +152,20 @@
 ;; pi-coding-agent.el - Emacs frontend for pi coding agent
 ;; ============================================================================
 (use-package! pi-coding-agent
+  ;; Local development copy of pi.el lives in site-lisp
   :load-path "~/.config/doom/site-lisp/pi.el"
+  ;; Defer loading until the `pi-coding-agent' command is invoked
   :commands (pi-coding-agent)
   :init
+  ;; Bind SPC o p to launch the pi coding agent
   (map! :leader
         :desc "Pi coding agent" "o p" #'pi-coding-agent)
+  ;; Copy messages as raw markdown instead of rendered text
+  (setq pi-coding-agent-copy-raw-markdown t)
+  ;; Start the input buffer in evil normal state
   (setq pi-coding-agent-evil-input-state 'normal)
+  ;; After sending a message, close the input window if it's a split
+  ;; (window-parent is nil for the sole window in a frame)
   (defadvice! my/pi-send-close-input (&rest _)
     :after #'pi-coding-agent-send
     (when-let ((win (get-buffer-window (current-buffer))))
@@ -165,8 +173,14 @@
                  (derived-mode-p 'pi-coding-agent-input-mode))
         (delete-window win))))
   :config
+  ;; Mark chat and input buffers as "real" so Doom treats them like
+  ;; regular file buffers (persists across buffer switching, etc.)
   (add-hook 'pi-coding-agent-chat-mode-hook (lambda () (setq doom-real-buffer-p t)))
-  (add-hook 'pi-coding-agent-input-mode-hook (lambda () (setq doom-real-buffer-p t))))
+  ;;(add-hook 'pi-coding-agent-input-mode-hook (lambda () (setq doom-real-buffer-p t)))
+  ;; Show the agent's status header line in chat buffers
+  (add-hook 'pi-coding-agent-chat-mode-hook
+            (lambda () (setq-local header-line-format
+                                   '(:eval (pi-coding-agent--header-line-string))))))
 
 (defun pi-reload ()
   "Reload all pi-coding-agent modules from development directory."
