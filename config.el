@@ -132,6 +132,14 @@
 ;; https://emacs.stackexchange.com/questions/51046/how-to-use-recover-session-and-dired-omit-mode-in-emacs-26-and-lower
 ;; https://github.com/doomemacs/doomemacs/issues/1568
 (remove-hook 'dired-mode-hook #'dired-omit-mode)
+(after! dired
+  (setq insert-directory-program "gls"
+        dired-listing-switches "-Al --group-directories-first"))
+
+(after! dirvish
+  ;; Indent expanded subdirectories (TAB) more visibly.
+  ;; The prefix is repeated once per nesting depth, using spaces only.
+  (setq dirvish-subtree-prefix "   │  "))
 
 ;; turn off the "really quit emacs" prompt when closing emacs
 (setq confirm-kill-emacs nil)
