@@ -1,4 +1,4 @@
 [submodule "site-lisp/pi.el"]
 	path = site-lisp/pi.el
-	url = git@github.com:dnouri/pi-coding-agent.git
-	branch = master
+	url = git@github.com:SayreBlades/pi.el.git
+	branch = table-pretty-toggle
