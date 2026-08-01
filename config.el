@@ -212,12 +212,17 @@ other window, jumping to the line."
 ;; overlay renders a wrapped, box-drawing view; toggle reveals raw to edit.
 ;; ============================================================================
 (use-package! table-pretty
-  ;; Absolute path: `use-package' resolves relative `:load-path' against
+  ;; Absolute paths: `use-package' resolves relative `:load-path' against
   ;; `user-emacs-directory' (~/.config/emacs/), not `doom-user-dir'.
-  :load-path "~/.config/doom/site-lisp"
-  ;; Load eagerly: the file is tiny (depends only on markdown-table-wrap,
-  ;; already installed) and this avoids autoload-generation fragility for
-  ;; local `:load-path' packages — `table-pretty-toggle' and
+  ;; markdown-table-wrap is vendored as a submodule (fork branch
+  ;; fix/min-column-width, PR #5 pending upstream); put its directory on
+  ;; `load-path' so `(require \='markdown-table-wrap)' in table-pretty.el
+  ;; resolves the vendored copy, not a stale straight build.
+  :load-path ("~/.config/doom/site-lisp"
+              "~/.config/doom/site-lisp/markdown-table-wrap")
+  ;; Load eagerly: the file is tiny (depends only on the vendored
+  ;; markdown-table-wrap) and this avoids autoload-generation fragility
+  ;; for local `:load-path' packages — `table-pretty-toggle' and
   ;; `table-pretty-mode' are always fboundp.
   :demand t
   :init
@@ -252,18 +257,18 @@ ARG is the prefix arg: `C-u' forces pretty on all, `C-u C-u' forces raw."
       (pi-coding-agent-toggle-table-pretty arg)
     (table-pretty-toggle arg)))
 
-;; One consistent cross-mode doom key: SPC t T (point-aware toggle).
+;; One consistent cross-mode doom key: SPC t t (point-aware toggle).
 (map! :leader :prefix "t"
-      :desc "Table pretty"  "T" #'my/table-pretty-toggle)
+      :desc "Table pretty"  "t" #'my/table-pretty-toggle)
 
 ;; Per-mode local-leader aliases (which-key bonuses):
 (map! :after markdown-mode :map markdown-mode-map :localleader
       (:prefix ("t" . "toggle")
-       :desc "Table pretty"  "T" #'my/table-pretty-toggle))
+       :desc "Table pretty"  "t" #'my/table-pretty-toggle))
 (map! :after org :map org-mode-map :localleader
       (:prefix ("b" . "tables")
        (:prefix ("t" . "toggle")
-        :desc "Pretty"  "p" #'my/table-pretty-toggle)))
+        :desc "Pretty"  "t" #'my/table-pretty-toggle)))
 
 ;; Vanilla key (documented recommendation; free in both org + markdown):
 (map! :after markdown-mode :map markdown-mode-map "C-c C-x C-k" #'my/table-pretty-toggle)

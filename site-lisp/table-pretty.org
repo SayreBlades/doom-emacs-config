@@ -154,7 +154,7 @@ recommendation is =C-c C-x C-k= — the only free, non-surprising
 ** Doom / evil
 
 Doom users expect =SPC=-prefixed keys.  A consistent cross-mode binding
-is =SPC t T= (the global toggle prefix).  Per-mode local-leader aliases
+is =SPC t t= (the global toggle prefix).  Per-mode local-leader aliases
 are optional which-key bonuses.
 
 #+begin_src emacs-lisp

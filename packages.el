@@ -54,5 +54,8 @@
 ;; pi-coding-agent dependencies (from MELPA, explicit recipes for straight.el)
 (package! md-ts-mode
   :recipe (:host github :repo "dnouri/md-ts-mode"))
-(package! markdown-table-wrap
-  :recipe (:host github :repo "dnouri/markdown-table-wrap"))
+;; markdown-table-wrap is vendored as a submodule at site-lisp/markdown-table-wrap
+;; (fork branch fix/min-column-width, PR #5 pending upstream) rather than via
+;; straight, so the empty-column min-width fix is live for table-pretty and pi
+;; chat.  Revert to the MELPA recipe once PR #5 merges upstream.
+;; (package! markdown-table-wrap :recipe (:host github :repo "dnouri/markdown-table-wrap"))
