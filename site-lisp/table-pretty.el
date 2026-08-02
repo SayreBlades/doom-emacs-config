@@ -343,6 +343,40 @@ for parsing only.  Returns nil when there is no separator or no header."
 
 ;;;; Rendering
 
+(defun table-pretty--render-links-in-cell (cell)
+  "Render markdown link/image spans in CELL to display form.
+A link `[text](url)' becomes `text' with the `link' face and a
+`help-echo' showing the url; an image `![alt](url)' becomes `alt'
+likewise.  Other text is unchanged.  Returns a new propertized
+string (the original CELL is not mutated).
+
+No-op when `table-pretty-prettify' is nil: in the raw pipe view
+(non-prettify) the canonical markdown syntax is shown verbatim so
+the buffer reads as valid source.  Only the pretty box-drawing view
+folds links to their underlined label, like a rendered markdown
+preview.  Text properties survive `markdown-table-wrap-cell'
+(`substring'/`concat' preserve them), so wrapping and padding keep
+the underline attached to the label across wrapped continuation
+lines.  Width measurement (`markdown-table-wrap-visible-width')
+ignores text properties, so columns size to the visible label, not
+the full `[label](url)' — giving wide-link columns their space back."
+  (if (not table-pretty-prettify)
+      cell
+    (let ((s (replace-regexp-in-string
+              "!\\[\\([^]]*\\)\\](\\([^)]*\\))"
+              (lambda (m)
+                (propertize (or (match-string 1 m) "")
+                            'face 'link 'mouse-face 'highlight
+                            'help-echo (or (match-string 2 m) "")))
+              cell t t)))
+      (replace-regexp-in-string
+       "\\[\\([^]]*\\)\\](\\([^)]*\\))"
+       (lambda (m)
+         (propertize (or (match-string 1 m) "")
+                     'face 'link 'mouse-face 'highlight
+                     'help-echo (or (match-string 2 m) "")))
+       s t t))))
+
 (defun table-pretty--render-row-lines (cells col-widths aligns)
   "Render table CELLS into display lines using COL-WIDTHS and ALIGNS.
 When `table-pretty-prettify' is non-nil, emit Unicode box-drawing
@@ -450,22 +484,34 @@ line.  Plain tables (no prefix) take a fast path."
                (table-pretty--parse-table bare-lines))
       (pcase-let* ((`(,headers ,aligns ,rows)
                    (table-pretty--parse-table bare-lines))
-                  (num-cols (max (length headers)
+                  ;; Fold link/image spans to their underlined label
+                  ;; for the pretty view, so columns size and render
+                  ;; to the visible label (e.g. `L1_aos_full') rather
+                  ;; than the full `[label](url)'.  `table-pretty--render-links-in-cell'
+                  ;; is a no-op when `table-pretty-prettify' is nil.
+                  (disp-headers (mapcar #'table-pretty--render-links-in-cell
+                                        headers))
+                  (disp-rows (mapcar (lambda (r)
+                                       (mapcar #'table-pretty--render-links-in-cell r))
+                                     rows))
+                  (num-cols (max (length disp-headers)
                                  (length aligns)
-                                 (if rows (apply #'max (mapcar #'length rows)) 0)))
+                                 (if disp-rows
+                                     (apply #'max (mapcar #'length disp-rows))
+                                   0)))
                   (content-width (max 1 (- width prefix-width)))
                   (col-widths
                    (markdown-table-wrap-compute-widths
-                    headers rows content-width num-cols))
+                    disp-headers disp-rows content-width num-cols))
                   (header-lines
-                   (table-pretty--render-row-lines headers col-widths aligns))
+                   (table-pretty--render-row-lines disp-headers col-widths aligns))
                   (separator-line
                    (table-pretty--render-separator-line col-widths aligns))
                   (row-groups
                    (mapcar (lambda (row)
                              (table-pretty--render-row-lines
                               row col-widths aligns))
-                           rows)))
+                           disp-rows)))
         (if no-prefix
             (append (list header-lines)
                     (list (list separator-line))
