@@ -146,24 +146,26 @@ other window, jumping to the line."
   ;; `markdown-follow-link-at-point'; require it so links work even
   ;; before any `markdown-mode' buffer has been opened.
   (require 'markdown-mode nil t)
-  (cond
-   ;; Markdown link (covers external URLs → browse, local → find-file)
-   ((and (fboundp 'markdown-link-p) (markdown-link-p))
-    (markdown-follow-link-at-point))
-   ;; Plain URL (not in markdown link syntax)
-   ((thing-at-point 'url)
-    (browse-url-at-point))
-   ;; File path (with optional :line / :line:col)
-   (t
-    ;; Use `defun!' (cl-letf on the function cell), NOT `defun' (cl-flet,
-    ;; lexical).  `evil-find-file-at-point-with-line' calls
-    ;; `find-file-at-point' (ffap), which does (funcall ffap-file-finder
-    ;; ...) = (funcall 'find-file ...).  A lexical cl-flet binding is
-    ;; invisible to `funcall'; the cl-letf binding is what redirects it.
-    ;; `find-file-other-window' calls `find-file-noselect' (not
-    ;; `find-file'), so there's no recursion.
-    (letf! ((defun! find-file (filename &optional wildcards)
-              (find-file-other-window filename wildcards)))
+  ;; Redirect every local-file open to the other window so S-RET never
+  ;; clobbers the current buffer (e.g. a pi chat buffer).  Use `defun!'
+  ;; (cl-letf on the function cell), NOT `defun' (cl-flet, lexical):
+  ;; both `markdown--browse-url' (local Markdown links) and
+  ;; `evil-find-file-at-point-with-line' (ffap, plain paths) reach
+  ;; `find-file' via (funcall ffap-file-finder ...), which a lexical
+  ;; cl-flet can't intercept; the cl-letf binding can.  External URLs go
+  ;; through `browse-url' and are unaffected.  `find-file-other-window'
+  ;; calls `find-file-noselect' (not `find-file'), so there's no recursion.
+  (letf! ((defun! find-file (filename &optional wildcards)
+            (find-file-other-window filename wildcards)))
+    (cond
+     ;; Markdown link (covers external URLs → browse, local → find-file)
+     ((and (fboundp 'markdown-link-p) (markdown-link-p))
+      (markdown-follow-link-at-point))
+     ;; Plain URL (not in markdown link syntax)
+     ((thing-at-point 'url)
+      (browse-url-at-point))
+     ;; File path (with optional :line / :line:col)
+     (t
       (evil-find-file-at-point-with-line)))))
 
 ;; Bind S-RET globally to this function.
