@@ -143,6 +143,17 @@ everywhere; toggle on demand).  Example:
   :type 'number
   :group 'table-pretty)
 
+(defface table-pretty-code-face
+  '((t :inherit (markdown-inline-code-face fixed-pitch)))
+  "Face used for inline code spans in pretty tables.
+Defaults to inheriting `markdown-inline-code-face' (so table code
+looks identical to inline code in the surrounding prose — color and
+all) with `fixed-pitch' as the fallback where markdown-mode's face is
+absent (e.g. `org-mode', `md-ts-mode').  Customize this face or set a
+foreground for a different look.  Applied only in the pretty view;
+no-op when `table-pretty-prettify' is nil."
+  :group 'table-pretty)
+
 ;;;; Buffer-Local State
 
 ;; Forward declaration: `table-pretty-mode' is defined by `define-minor-mode'
@@ -343,39 +354,61 @@ for parsing only.  Returns nil when there is no separator or no header."
 
 ;;;; Rendering
 
-(defun table-pretty--render-links-in-cell (cell)
-  "Render markdown link/image spans in CELL to display form.
-A link `[text](url)' becomes `text' with the `link' face and a
-`help-echo' showing the url; an image `![alt](url)' becomes `alt'
-likewise.  Other text is unchanged.  Returns a new propertized
-string (the original CELL is not mutated).
+(defun table-pretty--render-inline-spans-in-cell (cell)
+  "Render markdown inline spans in CELL to display form (pretty view).
+A display-only transformation (the canonical CELL is not mutated):
 
-No-op when `table-pretty-prettify' is nil: in the raw pipe view
-(non-prettify) the canonical markdown syntax is shown verbatim so
-the buffer reads as valid source.  Only the pretty box-drawing view
-folds links to their underlined label, like a rendered markdown
-preview.  Text properties survive `markdown-table-wrap-cell'
-(`substring'/`concat' preserve them), so wrapping and padding keep
-the underline attached to the label across wrapped continuation
-lines.  Width measurement (`markdown-table-wrap-visible-width')
-ignores text properties, so columns size to the visible label, not
-the full `[label](url)' — giving wide-link columns their space back."
+  - Escaped pipe `\\|'    -> `|'   (GFM table-level unescape).
+  - Image `![alt](url)'  -> `alt' with `link' face + url `help-echo'.
+  - Link  `[text](url)'  -> `text' with `link' face + url `help-echo'.
+  - Inline code (single or double backtick) -> inner text with
+    `table-pretty-code-face' (delimiters dropped).
+
+No-op when `table-pretty-prettify' is nil: the raw pipe view shows the
+canonical markdown verbatim (valid source).  Only the pretty
+box-drawing view folds spans, like a rendered markdown preview.
+
+Ordering matters: escaped pipes first (table syntax; a `\\|' inside a
+code span unescapes to `|' like cmark-gfm), then images/links, then
+code with the double-backtick form before the single-backtick form
+(longer delimiter wins, matching `markdown-table-wrap--tokenize-cell-text').
+Text properties survive `markdown-table-wrap-cell'
+(`substring'/`concat' preserve them), so the code face stays attached
+across wrapped continuation lines.  Width measurement
+(`markdown-table-wrap-visible-width') ignores text properties, so
+columns size to the rendered text, not the raw markup — giving
+markup-heavy columns their space back."
   (if (not table-pretty-prettify)
       cell
-    (let ((s (replace-regexp-in-string
-              "!\\[\\([^]]*\\)\\](\\([^)]*\\))"
-              (lambda (m)
-                (propertize (or (match-string 1 m) "")
-                            'face 'link 'mouse-face 'highlight
-                            'help-echo (or (match-string 2 m) "")))
-              cell t t)))
-      (replace-regexp-in-string
-       "\\[\\([^]]*\\)\\](\\([^)]*\\))"
-       (lambda (m)
-         (propertize (or (match-string 1 m) "")
-                     'face 'link 'mouse-face 'highlight
-                     'help-echo (or (match-string 2 m) "")))
-       s t t))))
+    (let* ((s (replace-regexp-in-string      ; \| -> |  (GFM table unescape, first)
+               "\\\\|" "|" cell))
+           (s (replace-regexp-in-string       ; ![alt](url) -> alt
+               "!\\[\\([^]]*\\)\\](\\([^)]*\\))"
+               (lambda (m)
+                 (propertize (or (match-string 1 m) "")
+                             'face 'link 'mouse-face 'highlight
+                             'help-echo (or (match-string 2 m) "")))
+               s t t))
+           (s (replace-regexp-in-string       ; [text](url) -> text
+               "\\[\\([^]]*\\)\\](\\([^)]*\\))"
+               (lambda (m)
+                 (propertize (or (match-string 1 m) "")
+                             'face 'link 'mouse-face 'highlight
+                             'help-echo (or (match-string 2 m) "")))
+               s t t))
+           (s (replace-regexp-in-string       ; `` code `` -> code
+               "``\\(\\(?:[^`]\\|`[^`]\\)+\\)``"
+               (lambda (m)
+                 (propertize (match-string 1 m)
+                             'face 'table-pretty-code-face))
+               s t t))
+           (s (replace-regexp-in-string       ; `code` -> code
+               "`\\([^`]+\\)`"
+               (lambda (m)
+                 (propertize (match-string 1 m)
+                             'face 'table-pretty-code-face))
+               s t t)))
+      s)))
 
 (defun table-pretty--render-row-lines (cells col-widths aligns)
   "Render table CELLS into display lines using COL-WIDTHS and ALIGNS.
@@ -484,15 +517,16 @@ line.  Plain tables (no prefix) take a fast path."
                (table-pretty--parse-table bare-lines))
       (pcase-let* ((`(,headers ,aligns ,rows)
                    (table-pretty--parse-table bare-lines))
-                  ;; Fold link/image spans to their underlined label
-                  ;; for the pretty view, so columns size and render
-                  ;; to the visible label (e.g. `L1_aos_full') rather
-                  ;; than the full `[label](url)'.  `table-pretty--render-links-in-cell'
-                  ;; is a no-op when `table-pretty-prettify' is nil.
-                  (disp-headers (mapcar #'table-pretty--render-links-in-cell
+                  ;; Fold inline spans (escaped pipes, links/images,
+                  ;; code) to their rendered form for the pretty view,
+                  ;; so columns size and render to the visible text
+                  ;; (e.g. `L1_aos_full', inner code) rather than the
+                  ;; raw markup (`[label](url)', backticks, `\|').
+                  ;; No-op when `table-pretty-prettify' is nil.
+                  (disp-headers (mapcar #'table-pretty--render-inline-spans-in-cell
                                         headers))
                   (disp-rows (mapcar (lambda (r)
-                                       (mapcar #'table-pretty--render-links-in-cell r))
+                                       (mapcar #'table-pretty--render-inline-spans-in-cell r))
                                      rows))
                   (num-cols (max (length disp-headers)
                                  (length aligns)
