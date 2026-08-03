@@ -146,12 +146,22 @@ everywhere; toggle on demand).  Example:
 (defface table-pretty-code-face
   '((t :inherit (markdown-inline-code-face fixed-pitch)))
   "Face used for inline code spans in pretty tables.
-Defaults to inheriting `markdown-inline-code-face' (so table code
-looks identical to inline code in the surrounding prose — color and
-all) with `fixed-pitch' as the fallback where markdown-mode's face is
-absent (e.g. `org-mode', `md-ts-mode').  Customize this face or set a
-foreground for a different look.  Applied only in the pretty view;
-no-op when `table-pretty-prettify' is nil."
+Defaults to inheriting `markdown-inline-code-face' (so table code looks
+identical to inline code in the surrounding prose) with `fixed-pitch' as
+the fallback where markdown-mode's face is absent (e.g. `org-mode',
+`md-ts-mode').  Customize this face for a different look.  Applied by
+`table-pretty-render-inline-spans' (the centralized table styler)."
+  :group 'table-pretty)
+
+(defcustom table-pretty-style-pi-chat t
+  "Non-nil means style pi-coding-agent chat tables via the centralized styler.
+When pi-coding-agent is loaded, plug `table-pretty-render-inline-spans'
+into pi's `pi-coding-agent-table-cell-render-function' so chat tables
+match markdown/gfm/md-ts/org file tables exactly.  Set to nil to leave
+chat tables at pi's default (markdown fontification).  This is a one-way
+opt-in (table-pretty configures pi); pi itself never references
+table-pretty."
+  :type 'boolean
   :group 'table-pretty)
 
 ;;;; Buffer-Local State
@@ -354,61 +364,135 @@ for parsing only.  Returns nil when there is no separator or no header."
 
 ;;;; Rendering
 
+(defun table-pretty-render-inline-spans (cell)
+  "Render markdown inline spans in CELL for display: drop delimiters, add faces.
+This is the CENTRALIZED table styler — the single source of truth used by
+table-pretty's own renderer AND, when available, by `pi-coding-agent'
+chat tables (see `pi-coding-agent--table-display-groups'), so pretty
+tables look identical in markdown, gfm, md-ts, org, and pi chat.
+A display-only transform (the canonical CELL is not mutated).
+
+Spans (longer delimiters folded first):
+- Escaped pipe `\\|'                -> `|'   (GFM table-level unescape)
+- Image `![alt](url)'               -> `alt' (`link' face + url help-echo)
+- Link  `[text](url)'               -> `text' (`link' face + url help-echo)
+- Bold-italic `***x***'             -> `x'   (`bold-italic' face)
+- Bold `**x**'                      -> `x'   (`bold' face)
+- Strikethrough `~~x~~'             -> `x'   (strike-through attribute)
+- Inline code (`` `` x `` `` / `` `x` ``) -> `x' (`table-pretty-code-face')
+- Italic `*x*'                      -> `x'   (`italic' face)
+
+Escaped pipes unescape FIRST (GFM table syntax; a `\\|' inside a code
+span resolves to `|' like cmark-gfm).  Code spans are then extracted to
+placeholders so their content is literal — `` `**not bold**` `` renders
+as `**not bold**` in code face, not folded.  Text properties survive
+`markdown-table-wrap-cell', so faces stay attached across wrapped
+continuation lines; width measurement ignores text properties, so
+columns size to the rendered text, not the raw markup."
+  (let ((result (replace-regexp-in-string "\\\\|" "|" cell)) ; \| -> | (GFM, first)
+        (code-spans nil)
+        (placeholder-idx 0))
+    ;; Phase 1: extract code spans (double-backtick then single) so their
+    ;; content is literal.  Placeholders \x00CODE<n>\x00 cannot appear in
+    ;; markdown.  Double-backtick: CommonMark trims one leading/trailing space.
+    (setq result
+          (replace-regexp-in-string
+           "``\\([^`]\\|`[^`]\\)+``"
+           (lambda (match)
+             (let* ((inner (substring match 2 -2))
+                    (trimmed (if (and (string-prefix-p " " inner)
+                                      (string-suffix-p " " inner)
+                                      (> (length inner) 1))
+                                 (substring inner 1 -1)
+                               inner))
+                    (ph (format "\x00CODE%d\x00" placeholder-idx)))
+               (push (cons ph trimmed) code-spans)
+               (setq placeholder-idx (1+ placeholder-idx))
+               ph))
+           result t t))
+    (setq result
+          (replace-regexp-in-string
+           "`\\([^`]+\\)`"
+           (lambda (match)
+             (let* ((inner (substring match 1 -1))
+                    (ph (format "\x00CODE%d\x00" placeholder-idx)))
+               (push (cons ph inner) code-spans)
+               (setq placeholder-idx (1+ placeholder-idx))
+               ph))
+           result t t))
+    ;; Phase 2: fold non-code spans with faces.  Image before link (both
+    ;; use brackets); bold-italic before bold before italic (longer first).
+    (setq result
+          (replace-regexp-in-string            ; image ![alt](url)
+           "!\\[\\([^]]*\\)\\](\\([^)]*\\))"
+           (lambda (m)
+             (propertize (or (match-string 1 m) "")
+                         'face 'link 'mouse-face 'highlight
+                         'help-echo (or (match-string 2 m) "")))
+           result t t))
+    (setq result
+          (replace-regexp-in-string            ; link [text](url)
+           "\\[\\([^]]*\\)\\](\\([^)]*\\))"
+           (lambda (m)
+             (propertize (or (match-string 1 m) "")
+                         'face 'link 'mouse-face 'highlight
+                         'help-echo (or (match-string 2 m) "")))
+           result t t))
+    (setq result
+          (replace-regexp-in-string            ; bold-italic ***x***
+           "\\*\\*\\*\\([^*]+\\)\\*\\*\\*"
+           (lambda (m)
+             (propertize (match-string 1 m) 'face 'bold-italic))
+           result t t))
+    (setq result
+          (replace-regexp-in-string            ; bold **x**
+           "\\*\\*\\([^*]+\\)\\*\\*"
+           (lambda (m)
+             (propertize (match-string 1 m) 'face 'bold))
+           result t t))
+    (setq result
+          (replace-regexp-in-string            ; strikethrough ~~x~~
+           "~~\\([^~]+\\)~~"
+           (lambda (m)
+             (propertize (match-string 1 m) 'face '(:strike-through t)))
+           result t t))
+    (setq result
+          (replace-regexp-in-string            ; italic *x*
+           "\\*\\([^*]+\\)\\*"
+           (lambda (m)
+             (propertize (match-string 1 m) 'face 'italic))
+           result t t))
+    ;; Phase 3: restore code spans with the code face.
+    (dolist (pair code-spans)
+      (setq result
+            (replace-regexp-in-string
+             (regexp-quote (car pair))
+             (propertize (cdr pair) 'face 'table-pretty-code-face)
+             result t t)))
+    result))
+
 (defun table-pretty--render-inline-spans-in-cell (cell)
-  "Render markdown inline spans in CELL to display form (pretty view).
-A display-only transformation (the canonical CELL is not mutated):
+  "Pretty-view wrapper around `table-pretty-render-inline-spans'.
+Returns CELL unchanged when `table-pretty-prettify' is nil, so the raw
+pipe view shows the canonical markdown verbatim (valid source)."
+  (if table-pretty-prettify
+      (table-pretty-render-inline-spans cell)
+    cell))
 
-  - Escaped pipe `\\|'    -> `|'   (GFM table-level unescape).
-  - Image `![alt](url)'  -> `alt' with `link' face + url `help-echo'.
-  - Link  `[text](url)'  -> `text' with `link' face + url `help-echo'.
-  - Inline code (single or double backtick) -> inner text with
-    `table-pretty-code-face' (delimiters dropped).
+;;;; Optional integration with pi-coding-agent (dependency inversion)
+;;
+;; pi-coding-agent exposes `pi-coding-agent-table-cell-render-function'
+;; (default nil) so an external styler can render chat table cells WITHOUT
+;; pi depending on it.  Here table-pretty opts in: when pi is present and
+;; `table-pretty-style-pi-chat' is non-nil, plug the centralized styler into
+;; that slot.  pi itself never references table-pretty — the arrow points
+;; only table-pretty -> pi.
 
-No-op when `table-pretty-prettify' is nil: the raw pipe view shows the
-canonical markdown verbatim (valid source).  Only the pretty
-box-drawing view folds spans, like a rendered markdown preview.
-
-Ordering matters: escaped pipes first (table syntax; a `\\|' inside a
-code span unescapes to `|' like cmark-gfm), then images/links, then
-code with the double-backtick form before the single-backtick form
-(longer delimiter wins, matching `markdown-table-wrap--tokenize-cell-text').
-Text properties survive `markdown-table-wrap-cell'
-(`substring'/`concat' preserve them), so the code face stays attached
-across wrapped continuation lines.  Width measurement
-(`markdown-table-wrap-visible-width') ignores text properties, so
-columns size to the rendered text, not the raw markup — giving
-markup-heavy columns their space back."
-  (if (not table-pretty-prettify)
-      cell
-    (let* ((s (replace-regexp-in-string      ; \| -> |  (GFM table unescape, first)
-               "\\\\|" "|" cell))
-           (s (replace-regexp-in-string       ; ![alt](url) -> alt
-               "!\\[\\([^]]*\\)\\](\\([^)]*\\))"
-               (lambda (m)
-                 (propertize (or (match-string 1 m) "")
-                             'face 'link 'mouse-face 'highlight
-                             'help-echo (or (match-string 2 m) "")))
-               s t t))
-           (s (replace-regexp-in-string       ; [text](url) -> text
-               "\\[\\([^]]*\\)\\](\\([^)]*\\))"
-               (lambda (m)
-                 (propertize (or (match-string 1 m) "")
-                             'face 'link 'mouse-face 'highlight
-                             'help-echo (or (match-string 2 m) "")))
-               s t t))
-           (s (replace-regexp-in-string       ; `` code `` -> code
-               "``\\(\\(?:[^`]\\|`[^`]\\)+\\)``"
-               (lambda (m)
-                 (propertize (match-string 1 m)
-                             'face 'table-pretty-code-face))
-               s t t))
-           (s (replace-regexp-in-string       ; `code` -> code
-               "`\\([^`]+\\)`"
-               (lambda (m)
-                 (propertize (match-string 1 m)
-                             'face 'table-pretty-code-face))
-               s t t)))
-      s)))
+(with-eval-after-load 'pi-coding-agent-table
+  (when (and table-pretty-style-pi-chat
+             (boundp 'pi-coding-agent-table-cell-render-function))
+    (setq pi-coding-agent-table-cell-render-function
+          #'table-pretty-render-inline-spans)))
 
 (defun table-pretty--render-row-lines (cells col-widths aligns)
   "Render table CELLS into display lines using COL-WIDTHS and ALIGNS.
@@ -518,11 +602,11 @@ line.  Plain tables (no prefix) take a fast path."
       (pcase-let* ((`(,headers ,aligns ,rows)
                    (table-pretty--parse-table bare-lines))
                   ;; Fold inline spans (escaped pipes, links/images,
-                  ;; code) to their rendered form for the pretty view,
-                  ;; so columns size and render to the visible text
-                  ;; (e.g. `L1_aos_full', inner code) rather than the
-                  ;; raw markup (`[label](url)', backticks, `\|').
-                  ;; No-op when `table-pretty-prettify' is nil.
+                  ;; bold/italic/strike/code) via
+                  ;; `table-pretty--render-inline-spans-in-cell' — the
+                  ;; centralized styling also used by pi chat — so columns
+                  ;; size and render to the visible text rather than the
+                  ;; raw markup.  No-op when `table-pretty-prettify' is nil.
                   (disp-headers (mapcar #'table-pretty--render-inline-spans-in-cell
                                         headers))
                   (disp-rows (mapcar (lambda (r)
