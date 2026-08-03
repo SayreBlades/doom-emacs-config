@@ -1,7 +1,7 @@
 [submodule "site-lisp/pi.el"]
 	path = site-lisp/pi.el
-	url = git@github.com:SayreBlades/pi.el.git
-	branch = table-pretty-toggle
+	url = https://github.com/SayreBlades/pi.el.git
+	branch = feature/table-pretty-cell-styling
 [submodule "site-lisp/markdown-table-wrap"]
 	path = site-lisp/markdown-table-wrap
 	url = https://github.com/SayreBlades/markdown-table-wrap.git
