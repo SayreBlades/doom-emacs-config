@@ -135,6 +135,26 @@
 ;; Useful in pi chat buffers (md-ts-mode) where RET is pi's own
 ;; `pi-coding-agent-visit-file' (strict file targets); this complements it
 ;; by handling external URLs and arbitrary markdown links.
+(defun +my--url-at-point ()
+  "Return a URL at point, stripping surrounding Markdown emphasis.
+`thing-at-point' fails to recognize a URL wrapped in emphasis markers
+like **URL** (e.g. in a pi chat buffer), so when it returns nothing --
+or returns the URL with stray Markdown emphasis / backticks attached -- fall back to
+scanning the current line and trimming leading/trailing emphasis chars."
+  (let ((url (thing-at-point 'url t)))
+    (cond
+     ((and url (string-match-p "\\`https?://" url))
+      (string-trim url "[*_~`]+" "[*_~`]+"))
+     (t
+      (let ((line (buffer-substring-no-properties
+                   (line-beginning-position) (line-end-position))))
+        (save-match-data
+          (if (string-match
+               (rx "http" (? "s") "://"
+                   (one-or-more (not (in " \t\r\n\f"))))
+               line)
+              (string-trim (match-string 0 line) "[*_~`]+" "[*_~`]+"))))))))
+
 (defun +my/find-file-at-point-other-window ()
   "Follow the thing at point, opening files in the other window.
 If point is on a Markdown link, follow it (browse external URLs, open
@@ -157,16 +177,18 @@ other window, jumping to the line."
   ;; calls `find-file-noselect' (not `find-file'), so there's no recursion.
   (letf! ((defun! find-file (filename &optional wildcards)
             (find-file-other-window filename wildcards)))
-    (cond
-     ;; Markdown link (covers external URLs → browse, local → find-file)
-     ((and (fboundp 'markdown-link-p) (markdown-link-p))
-      (markdown-follow-link-at-point))
-     ;; Plain URL (not in markdown link syntax)
-     ((thing-at-point 'url)
-      (browse-url-at-point))
-     ;; File path (with optional :line / :line:col)
-     (t
-      (evil-find-file-at-point-with-line)))))
+    (let ((url (+my--url-at-point)))
+      (cond
+       ;; Markdown link (covers external URLs → browse, local → find-file)
+       ((and (fboundp 'markdown-link-p) (markdown-link-p))
+        (markdown-follow-link-at-point))
+       ;; Plain URL (not in markdown link syntax), tolerant of Markdown
+       ;; emphasis like **url** that defeats `thing-at-point'.
+       (url
+        (browse-url url))
+       ;; File path (with optional :line / :line:col)
+       (t
+        (evil-find-file-at-point-with-line))))))
 
 ;; Bind S-RET globally to this function.
 (map! "S-<return>" #'+my/find-file-at-point-other-window)
