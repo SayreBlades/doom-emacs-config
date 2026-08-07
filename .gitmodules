@@ -4,5 +4,5 @@
 	branch = feature/table-pretty-cell-styling
 [submodule "site-lisp/markdown-table-wrap"]
 	path = site-lisp/markdown-table-wrap
-	url = https://github.com/SayreBlades/markdown-table-wrap.git
-	branch = feat/pretty-display
+	url = https://github.com/dnouri/markdown-table-wrap.git
+	branch = main
