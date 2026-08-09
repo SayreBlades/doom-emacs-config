@@ -155,6 +155,22 @@ scanning the current line and trimming leading/trailing emphasis chars."
                line)
               (string-trim (match-string 0 line) "[*_~`]+" "[*_~`]+"))))))))
 
+(defun +my--markdown-bracket-link-p ()
+  "Return non-nil if point is on a genuine Markdown *bracketed* link.
+Covers `[text](url)', `[text][ref]', reference-only `[ref]', and
+angle-bracket `<url>'.  Deliberately EXCLUDES bare URIs:
+`markdown-link-p' also matches a plain URI via `markdown-regex-uri',
+whose character class `[^]\t\n\r<>; ]+' admits `*', so for
+emphasis-wrapped text like `**http://host/x**' it captures the
+trailing `**' and opens a bogus URL.  Bare URIs are instead handled
+by `+my--url-at-point', which strips surrounding emphasis."
+  (and (fboundp 'markdown-link-p)
+       (boundp 'markdown-regex-link-inline)
+       (save-excursion
+         (or (thing-at-point-looking-at markdown-regex-link-inline)
+             (thing-at-point-looking-at markdown-regex-link-reference)
+             (thing-at-point-looking-at markdown-regex-angle-uri)))))
+
 (defun +my/find-file-at-point-other-window ()
   "Follow the thing at point, opening files in the other window.
 If point is on a Markdown link, follow it (browse external URLs, open
@@ -179,11 +195,15 @@ other window, jumping to the line."
             (find-file-other-window filename wildcards)))
     (let ((url (+my--url-at-point)))
       (cond
-       ;; Markdown link (covers external URLs → browse, local → find-file)
-       ((and (fboundp 'markdown-link-p) (markdown-link-p))
+       ;; Genuine Markdown bracket/angle link (`[t](u)', `[ref]', `<uri>'):
+       ;; delegate -- markdown's own parsing is authoritative here, and the
+       ;; emphasis-stripping in `url' is unnecessary.  Bare URIs do NOT go
+       ;; through this branch (see `+my--markdown-bracket-link-p').
+       ((+my--markdown-bracket-link-p)
         (markdown-follow-link-at-point))
-       ;; Plain URL (not in markdown link syntax), tolerant of Markdown
-       ;; emphasis like **url** that defeats `thing-at-point'.
+       ;; Plain URL (incl. one wrapped in Markdown emphasis like **url**,
+       ;; which `thing-at-point' / `markdown-link-p' would otherwise capture
+       ;; raw).  `+my--url-at-point' has already stripped the emphasis.
        (url
         (browse-url url))
        ;; File path (with optional :line / :line:col)
