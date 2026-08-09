@@ -371,13 +371,15 @@ ARG is the prefix arg: `C-u' forces pretty on all, `C-u C-u' forces raw."
   (setq pi-coding-agent-copy-raw-markdown t)
   ;; Start the input buffer in evil normal state
   (setq pi-coding-agent-evil-input-state 'normal)
-  ;; Hide the input window by default; open on demand with pi-coding-agent-open-input
+  ;; Launch sessions chat-only and hide the input after each send;
+  ;; reopen it with `i'/`a' (Evil) or M-x pi-coding-agent-open-input.
+  ;; This subsumes the old `my/pi-send-close-input' advice.
   (setq pi-coding-agent-input-window-display 'hidden)
   :config
-  ;; Mark chat and input buffers as "real" so Doom treats them like
-  ;; regular file buffers (persists across buffer switching, etc.)
+  ;; Mark only the chat buffer as "real" so Doom treats it like a
+  ;; regular file buffer.  Leave the input buffer non-real (Doom's
+  ;; default) so it behaves like an ephemeral/popup pane.
   (add-hook 'pi-coding-agent-chat-mode-hook (lambda () (setq doom-real-buffer-p t)))
-  ;;(add-hook 'pi-coding-agent-input-mode-hook (lambda () (setq doom-real-buffer-p t)))
   ;; Disable line numbers in chat and input buffers
   (add-hook 'pi-coding-agent-chat-mode-hook
             (lambda () (display-line-numbers-mode -1)))
