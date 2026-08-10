@@ -1,0 +1,234 @@
+#+title: yank-rich — Multi-Format Yank for Emacs
+#+author: SayreBlades
+#+options: toc:2 num:nil
+
+* What it is
+
+=yank-rich= adds two new yank modalities alongside the normal =y= (evil-yank):
+
+| Key   | Command      | What it copies                                    | Use case                                |
+|-------+--------------+---------------------------------------------------+-----------------------------------------|
+| =gyr= | =yank-rich=  | Rich text (RTF) to system clipboard               | Paste into Outlook, Teams, Word, Notes  |
+| =gyp= | =yank-plain= | Plain text, all markup stripped                   | Paste a command without =```bash= cruft |
+| =y=   | (unchanged)  | Raw buffer text (markdown/org source with markup) | Paste into another editor               |
+
+Normal =y= / =Y= are completely undisturbed.
+
+* Installation
+
+=yank-rich.el= lives in =~/.config/doom/site-lisp/yank-rich.el=.
+
+** Dependencies
+
+- *pandoc* — used for both markdown→HTML (rich) and markdown→plain
+  conversions.  Must be on =$PATH=.
+- *textutil* + *pbcopy* — macOS built-ins for HTML→RTF→clipboard.
+- *htmlize* — Emacs package (ships with Doom); fallback for non-org,
+  non-markdown buffers.
+- *ox-clip* — Emacs package (ships with Doom); used for org-mode rich
+  yank.
+- *evil* — operators are defined via =evil-define-operator=.
+
+** Doom config
+
+#+begin_src emacs-lisp
+(use-package! yank-rich
+  :load-path "~/.config/doom/site-lisp"
+  :commands (yank-rich yank-plain)
+  :init
+  ;; `gy` prefix with which-key labels
+  (map! :nv "gy" nil)  ; clear Doom's default gy (yank-unindented)
+  (map! :nv "gyr" #'yank-rich
+        :nv "gyp" #'yank-plain)
+  (which-key-add-key-based-replacements
+    "gy"  "yank-as…"
+    "gyr" "rich (RTF)"
+    "gyp" "plain (stripped)"))
+#+end_src
+
+* Usage
+
+** Rich yank (=gyr=)
+
+Copies the selected text as formatted RTF to the system clipboard.
+Paste into any rich-text application and formatting is preserved.
+
+*** Visual mode
+
+1. Visual-select text (=v=, =V=, or =C-v=).
+2. Press =gyr=.
+3. Paste (=⌘V=) into Outlook, Teams, Word, Notes, etc.
+
+*** Operator with motion (normal mode)
+
+=gyr= is a full evil operator, so it accepts motions:
+
+| Keystrokes    | Effect                               |
+|---------------+--------------------------------------|
+| =gyr ip=      | Rich-yank inner paragraph            |
+| =gyr i}=      | Rich-yank inside braces              |
+| =gyr 5j=      | Rich-yank current line + 5 below     |
+| =V3jgyr=      | Visual-line select 4 lines, rich-yank |
+
+*** How it works per major mode
+
+| Mode                          | Engine                        | Output quality        |
+|-------------------------------+-------------------------------+-----------------------|
+| =org-mode=                    | =ox-clip= (org HTML exporter) | Full semantic HTML    |
+| =markdown-mode= / =gfm-mode= | =pandoc -f markdown -t html=  | Full semantic HTML    |
+| =md-ts-mode=                  | =pandoc -f markdown -t html=  | Full semantic HTML    |
+| =pi-coding-agent-chat-mode=   | =pandoc -f markdown -t html=  | Full semantic HTML    |
+| Other modes                   | =htmlize= (face capture)      | Best-effort (faces)   |
+
+For markdown and pi-chat, pandoc produces real =<a href>= links, =<table>=
+elements, =<pre><code>= blocks, =<strong>=/=<em>= — identical quality to
+org-mode's exporter.
+
+** Plain yank (=gyp=)
+
+Copies the selected text with ALL markup stripped — no fences, no bold
+markers, no table pipes.  The result goes into the kill ring (=p= to
+paste in Emacs) and the system clipboard.
+
+*** Visual mode
+
+1. Visual-select a code block (including the =```= fences).
+2. Press =gyp=.
+3. Paste — you get just the code, no =```bash= or =```=.
+
+*** Operator with motion
+
+Same as rich — =gyp= accepts motions:
+
+| Keystrokes | Effect                                  |
+|------------+-----------------------------------------|
+| =gyp ip=   | Plain-yank inner paragraph              |
+| =gyp iB=   | Plain-yank inside code block (treesit)  |
+
+*** How it works
+
+1. Extracts the raw markup text from the buffer.
+2. Pipes it through =pandoc -f <format> -t plain --wrap=none=.
+3. Dedents code blocks (pandoc adds 4-space indent to fenced code;
+   =yank-rich= strips it back so pasted commands are ready to run).
+4. Result goes into the kill ring via =kill-new=.
+
+*** Code block example
+
+Buffer shows (pretty-rendered, fences hidden):
+
+#+begin_example
+  docker run -it --rm ubuntu:latest bash
+#+end_example
+
+With normal =y=, you'd get:
+
+#+begin_example
+```bash
+docker run -it --rm ubuntu:latest bash
+```
+#+end_example
+
+With =gyp=, you get:
+
+#+begin_example
+docker run -it --rm ubuntu:latest bash
+#+end_example
+
+*** Table example
+
+Buffer contains:
+
+#+begin_example
+| Command    | Description   |
+|------------|---------------|
+| `git log`  | Show history  |
+| `git diff` | Show changes  |
+#+end_example
+
+With =gyp=, you get:
+
+#+begin_example
+Command   Description
+git log   Show history
+git diff   Show changes
+#+end_example
+
+* Customization
+
+| Variable                        | Default   | Description                                       |
+|---------------------------------+-----------+---------------------------------------------------|
+| =yank-rich-pandoc-executable=   | ="pandoc"= | Path to pandoc binary                             |
+| =yank-rich-rtf-command=         | (see below) | Shell pipeline: HTML stdin → RTF on clipboard   |
+| =yank-rich-dedent-code-blocks=  | =t=        | Strip 4-space indent pandoc adds to code blocks   |
+
+Default RTF command (macOS):
+
+#+begin_example
+textutil -inputencoding UTF-8 -stdin -format html -convert rtf -stdout | pbcopy
+#+end_example
+
+* Interaction with pi-coding-agent
+
+In pi chat buffers (=pi-coding-agent-chat-mode=):
+
+- The buffer has =pi-coding-agent-copy-raw-markdown= set to =t=, so
+  normal =y= copies the raw markdown source (with =**=, backticks,
+  fences).
+- =gyr= copies the rendered rich text (bold, links, tables) to paste
+  into email/Teams.
+- =gyp= copies plain content (commands without fences, text without
+  markup) for pasting into terminals or plain-text fields.
+
+The three modalities cover the full workflow:
+
+#+begin_example
+  y   → paste into another markdown file (preserve source)
+  gyr → paste into email/Teams/Word (preserve formatting)
+  gyp → paste into terminal/plain field (just the content)
+#+end_example
+
+* Troubleshooting
+
+** "Cannot open load file: yank-rich"
+
+The file is missing from =~/.config/doom/site-lisp/yank-rich.el= or
+the =:load-path= in the config is wrong.
+
+** "pandoc failed (exit N)"
+
+Pandoc is not installed or not on =$PATH=.  Check:
+
+#+begin_src bash
+which pandoc
+pandoc --version
+#+end_src
+
+** Rich paste shows plain text
+
+Some apps (Slack, certain web text fields) strip RTF on paste.  Try
+pasting into TextEdit, Notes, or Word first to verify =gyr= works,
+then check the destination app's paste behavior (some support
+=⌘⇧V= for "paste with formatting").
+
+** "Wrong type argument: commandp, yank-plain"
+
+The =:commands= list in the =use-package!= config must include both
+=yank-rich= and =yank-plain=:
+
+#+begin_src emacs-lisp
+:commands (yank-rich yank-plain)
+#+end_src
+
+* Limitations
+
+- *macOS only* — uses =textutil= and =pbcopy=.  Linux would need
+  =xclip= with =text/html= target (see =ox-clip= for the pattern).
+- *No image support* — inline images in org/markdown are not copied.
+  Use =ox-clip-image-to-clipboard= for that.
+- *Pandoc plain dedent is heuristic* — it strips common leading
+  whitespace.  Mixed selections (code + prose) keep code indented
+  relative to prose (which is usually correct).
+- *RTF goes to system clipboard only* — the kill ring gets the raw
+  text (for =p= in Emacs); the system clipboard gets the RTF (for
+  =⌘V= in other apps).  This matches =ox-clip='s behavior.

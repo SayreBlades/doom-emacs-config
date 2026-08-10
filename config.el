@@ -33,9 +33,9 @@
 ;; There are two ways to load a theme. Both assume the theme is installed and
 ;; available. You can either set `doom-theme' or manually load a theme with the
 ;; `load-theme' function. This is the default:
-(setq doom-theme 'doom-earl-grey)
+;; (setq doom-theme 'doom-earl-grey)
 ;;(setq doom-theme 'doom-one)
-;; (setq doom-theme 'doom-nord-light)
+(setq doom-theme 'doom-nord-light)
 ;; (setq doom-theme 'doom-nord)
 ;; (setq doom-theme 'doom-zenburn)
 
@@ -250,46 +250,58 @@ other window, jumping to the line."
 (add-to-list 'initial-frame-alist '(fullscreen . maximized))
 
 ;; ============================================================================
+;; yank-rich: multi-format yank — rich (RTF), plain (stripped)
+;; Visual select text, then `gy r` for rich or `gy p` for plain.
+;; Normal `y`/`Y` are undisturbed (raw markdown / default yank).
+;; ============================================================================
+(use-package! yank-rich
+  :load-path "~/.config/doom/site-lisp"
+  :commands (yank-rich yank-plain)
+  :init
+  ;; `gy` prefix with which-key labels; works as evil operators (visual + motions)
+  (map! :nv "gy" nil)  ; clear Doom's default gy (yank-unindented)
+  (map! :nv "gyr" #'yank-rich
+        :nv "gyp" #'yank-plain)
+  (which-key-add-key-based-replacements
+    "gy"  "yank-as…"
+    "gyr" "rich (RTF)"
+    "gyp" "plain (stripped)"))
+
+;; ============================================================================
 ;; markdown-table-wrap-pretty — display-only pretty rendering of pipe tables
 ;; with toggle (markdown / gfm / md-ts / org).  Display companion shipped in
 ;; the vendored markdown-table-wrap submodule (branch feat/pretty-display).
 ;; Mirrors `org-latex-preview': canonical buffer text stays valid; a display
 ;; overlay renders a wrapped, box-drawing view; toggle reveals raw to edit.
 ;; ============================================================================
-(use-package! markdown-table-wrap-pretty
-  ;; Absolute paths: `use-package' resolves relative `:load-path' against
-  ;; `user-emacs-directory' (~/.config/emacs/), not `doom-user-dir'.
-  ;; The engine (`markdown-table-wrap') and this display companion both
-  ;; live in the vendored submodule directory.
-  :load-path "~/.config/doom/site-lisp/markdown-table-wrap"
-  ;; Load eagerly: the files are tiny (depend only on the vendored
-  ;; markdown-table-wrap) and this avoids autoload-generation fragility
-  ;; for local `:load-path' packages — `markdown-table-wrap-pretty-toggle'
-  ;; and `-mode' are always fboundp.
+(use-package! table-pretty
+  ;; Local display companion — lives alongside the vendored
+  ;; markdown-table-wrap engine that it depends on.
+  :load-path ("~/.config/doom/site-lisp" "~/.config/doom/site-lisp/markdown-table-wrap")
   :demand t
   :init
   ;; pi chat buffers derive from md-ts-mode but have their own overlay
   ;; system (pi-coding-agent-table.el); don't let this shadow it.
   ;; The chat toggle is handled by the dispatch wrapper below.
   (defun my/table-pretty-maybe-enable ()
-    "Enable `markdown-table-wrap-pretty-mode' unless in a pi chat buffer."
+    "Enable `table-pretty-mode' unless in a pi chat buffer."
     (unless (derived-mode-p 'pi-coding-agent-chat-mode)
-      (markdown-table-wrap-pretty-mode 1)))
-  :hook (markdown-mode . markdown-table-wrap-pretty-mode)
+      (table-pretty-mode 1)))
+  :hook (markdown-mode . table-pretty-mode)
   :hook (md-ts-mode    . my/table-pretty-maybe-enable)
-  :hook (org-mode      . markdown-table-wrap-pretty-mode)
+  :hook (org-mode      . table-pretty-mode)
   :config
   ;; Default tables to pretty on buffer open in markdown + org.
-  (setq markdown-table-wrap-pretty-default-on-major-modes
+  (setq table-pretty-default-on-major-modes
         '(markdown-mode gfm-mode org-mode md-ts-mode))
   ;; Keep pi chat tables styled consistently: plug the centralized inline-
   ;; span styler into pi's cell-render hook (one-way opt-in; pi itself
-  ;; never references this package).  The old local table-pretty.el did
-  ;; this automatically; the upstream package does not, so wire it here.
+  ;; never references this package).  table-pretty.el does this
+  ;; automatically via `with-eval-after-load', but be explicit here.
   (with-eval-after-load 'pi-coding-agent-table
     (when (boundp 'pi-coding-agent-table-cell-render-function)
       (setq pi-coding-agent-table-cell-render-function
-            #'markdown-table-wrap-pretty-render-inline-spans))))
+            #'table-pretty-render-inline-spans))))
 
 ;; Dispatch wrapper: in pi chat, delegate to pi's own toggle (which uses
 ;; pi's tree-sitter detection + overlay system); elsewhere, use
@@ -300,12 +312,12 @@ other window, jumping to the line."
   "Toggle pretty table rendering, dispatching by major mode.
 In `pi-coding-agent-chat-mode', use pi's own
 \[pi-coding-agent-toggle-table-pretty] (pi's tree-sitter detection +
-overlay system).  Otherwise use `markdown-table-wrap-pretty-toggle'.
+overlay system).  Otherwise use `table-pretty-toggle'.
 ARG is the prefix arg: `C-u' forces pretty on all, `C-u C-u' forces raw."
   (interactive "P")
   (if (derived-mode-p 'pi-coding-agent-chat-mode)
       (pi-coding-agent-toggle-table-pretty arg)
-    (markdown-table-wrap-pretty-toggle arg)))
+    (table-pretty-toggle arg)))
 
 ;; One consistent cross-mode doom key: SPC t t (point-aware toggle).
 (map! :leader :prefix "t"
@@ -317,8 +329,8 @@ ARG is the prefix arg: `C-u' forces pretty on all, `C-u C-u' forces raw."
        :desc "Table pretty"  "t" #'my/table-pretty-toggle))
 (map! :after org :map org-mode-map :localleader
       (:prefix ("b" . "tables")
-       (:prefix ("t" . "toggle")
-        :desc "Pretty"  "t" #'my/table-pretty-toggle)))
+               (:prefix ("t" . "toggle")
+                :desc "Pretty"  "t" #'my/table-pretty-toggle)))
 
 ;; Vanilla key (documented recommendation; free in both org + markdown):
 (map! :after markdown-mode :map markdown-mode-map "C-c C-x C-k" #'my/table-pretty-toggle)
