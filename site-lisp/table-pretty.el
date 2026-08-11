@@ -374,6 +374,8 @@ A display-only transform (the canonical CELL is not mutated).
 
 Spans (longer delimiters folded first):
 - Escaped pipe `\\|'                -> `|'   (GFM table-level unescape)
+- Org link `[[target][desc]]'       -> `desc' (`link' face + target help-echo)
+- Org link `[[target]]'             -> `target' (`link' face + help-echo)
 - Image `![alt](url)'               -> `alt' (`link' face + url help-echo)
 - Link  `[text](url)'               -> `text' (`link' face + url help-echo)
 - Bold-italic `***x***'             -> `x'   (`bold-italic' face)
@@ -420,8 +422,25 @@ columns size to the rendered text, not the raw markup."
                (setq placeholder-idx (1+ placeholder-idx))
                ph))
            result t t))
-    ;; Phase 2: fold non-code spans with faces.  Image before link (both
-    ;; use brackets); bold-italic before bold before italic (longer first).
+    ;; Phase 2: fold non-code spans with faces.  Org links first (double
+    ;; brackets), then markdown image/link (single brackets); bold-italic
+    ;; before bold before italic (longer first).
+    (setq result
+          (replace-regexp-in-string            ; org link [[target][desc]]
+           "\\[\\[\\([^]]*\\)\\]\\[\\([^]]*\\)\\]\\]"
+           (lambda (m)
+             (propertize (or (match-string 2 m) "")
+                         'face 'link 'mouse-face 'highlight
+                         'help-echo (or (match-string 1 m) "")))
+           result t t))
+    (setq result
+          (replace-regexp-in-string            ; org link [[target]] (no desc)
+           "\\[\\[\\([^]]*\\)\\]\\]"
+           (lambda (m)
+             (propertize (or (match-string 1 m) "")
+                         'face 'link 'mouse-face 'highlight
+                         'help-echo (or (match-string 1 m) "")))
+           result t t))
     (setq result
           (replace-regexp-in-string            ; image ![alt](url)
            "!\\[\\([^]]*\\)\\](\\([^)]*\\))"
