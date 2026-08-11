@@ -371,14 +371,8 @@ ARG is the prefix arg: `C-u' forces pretty on all, `C-u C-u' forces raw."
   (setq pi-coding-agent-copy-raw-markdown t)
   ;; Start the input buffer in evil normal state
   (setq pi-coding-agent-evil-input-state 'normal)
-  ;; After sending a message, close the input window if it's a split
-  ;; (window-parent is nil for the sole window in a frame)
-  (defadvice! my/pi-send-close-input (&rest _)
-    :after #'pi-coding-agent-send
-    (when-let ((win (get-buffer-window (current-buffer))))
-      (when (and (window-parent win)
-                 (derived-mode-p 'pi-coding-agent-input-mode))
-        (delete-window win))))
+  ;; Hide the input window by default; open on demand with pi-coding-agent-open-input
+  (setq pi-coding-agent-input-window-display 'hidden)
   :config
   ;; Mark chat and input buffers as "real" so Doom treats them like
   ;; regular file buffers (persists across buffer switching, etc.)
