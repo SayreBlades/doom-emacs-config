@@ -57,7 +57,22 @@
 ;; Requires: npm install -g @mermaid-js/mermaid-cli (provides mmdc)
 (after! org
   (require 'ob-mermaid)
-  (setq ob-mermaid-cli-path "/opt/homebrew/bin/mmdc"))
+  (setq ob-mermaid-cli-path "/opt/homebrew/bin/mmdc")
+  ;; Disable org-element cache — avoids intermittent parser errors
+  ;; (wrong-type-argument integer-or-marker-p nil) on large files.
+  (setq org-element-use-cache nil)
+
+  ;; Show inline images by default when opening org files.
+  (setq org-startup-with-inline-images t)
+
+  ;; Auto-fold plantuml and mermaid source blocks on file open.
+  (defun +org/fold-diagram-src-blocks ()
+    "Fold all plantuml/mermaid src blocks in the current buffer."
+    (org-babel-map-src-blocks nil
+      (let ((lang (org-element-property :language (org-element-at-point))))
+        (when (member lang '("plantuml" "mermaid"))
+          (org-hide-block-toggle t)))))
+  (add-hook 'org-mode-hook #'+org/fold-diagram-src-blocks 'append))
 
 
 ;; Whenever you reconfigure a package, make sure to wrap your config in an
