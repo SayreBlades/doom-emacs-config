@@ -150,6 +150,12 @@
 ;; Useful in pi chat buffers (md-ts-mode) where RET is pi's own
 ;; `pi-coding-agent-visit-file' (strict file targets); this complements it
 ;; by handling external URLs and arbitrary markdown links.
+;;
+;; File targets navigate ONLY the other window: the current window keeps
+;; its buffer, point, AND selection (`find-file-other-window' would display
+;; in the other window but also SELECT it, dragging the cursor along, which
+;; is why both windows appeared to "navigate").  `C-u S-RET' opts back into
+;; following the cursor into the target window.
 (defun +my--url-at-point ()
   "Return a URL at point, stripping surrounding Markdown emphasis.
 `thing-at-point' fails to recognize a URL wrapped in emphasis markers
@@ -186,28 +192,102 @@ by `+my--url-at-point', which strips surrounding emphasis."
              (thing-at-point-looking-at markdown-regex-link-reference)
              (thing-at-point-looking-at markdown-regex-angle-uri)))))
 
-(defun +my/find-file-at-point-other-window ()
-  "Follow the thing at point, opening files in the other window.
+(defvar +my--target-window nil
+  "Window last navigated to by `+my/find-file-at-point-other-window'.")
+
+(defvar ffap-string-at-point-region)   ; set by `ffap-file-at-point'
+
+(defun +my--display-in-other-window (buffer)
+  "Display BUFFER in the other window WITHOUT selecting it.
+Reuses the next window on the selected frame; splits the selected window
+if it is the only one.  Return the window now showing BUFFER.  Unlike
+`switch-to-buffer-other-window', the selected window is left alone, so
+point stays where it is (this is the crux of the S-RET behavior)."
+  (let ((window (next-window)))
+    (if (not (eq window (selected-window)))
+        (if (window-dedicated-p window)
+            ;; Dedicated windows (side windows, popups) refuse a plain
+            ;; `set-window-buffer'; let `display-buffer' find another home.
+            (display-buffer buffer '((display-buffer-pop-up-window
+                                      display-buffer-use-some-window)
+                                     (inhibit-same-window . t)))
+          (set-window-buffer window buffer)
+          window)
+      ;; Single window: pop a new one up on the right.
+      (setq window (split-window-right))
+      (set-window-buffer window buffer)
+      window)))
+
+(defun +my/find-file-at-point-with-line ()
+  "Open the file at point in the other window, keeping point where it is.
+Supports positions in the formats `path:line', `path:line:col',
+`path(line)' and `path(line,col)', mirroring
+`evil-find-file-at-point-with-line' -- but jumps to the line/column in the
+TARGET window instead of the current buffer.  Must run inside
+`+my/find-file-at-point-other-window', whose `find-file' redirect records
+the target window in `+my--target-window' (we can't reuse evil's command
+directly: with focus left in the chat window, its post-`find-file' goto
+would run in the CHAT buffer and stomp the chat's point)."
+  (require 'ffap)
+  (let ((fname (ffap-file-at-point)))
+    (unless fname
+      (user-error "File does not exist."))
+    (let* (;; Same `ffap-string-at-point-region' trick evil uses: after the
+           ;; file name, look for trailing line/column specs around it.
+           (get-number
+            (lambda (pattern match-number backward)
+              (save-excursion
+                (goto-char (cadr ffap-string-at-point-region))
+                (and (if backward
+                         (re-search-backward pattern (line-beginning-position) t)
+                       (re-search-forward pattern (line-end-position) t))
+                     (string-to-number (match-string match-number))))))
+           (line (or (funcall get-number ":\\([0-9]+\\):\\([0-9]+\\)\\=" 1 t)
+                     (funcall get-number "\\=(\\([0-9]+\\),\\([0-9]+\\))" 1 nil)
+                     (funcall get-number ":\\([0-9]+\\)\\=" 1 t)
+                     (funcall get-number "\\=(\\([0-9]+\\))" 1 nil)))
+           (column (or (funcall get-number ":\\([0-9]+\\):\\([0-9]+\\)\\=" 2 t)
+                       (funcall get-number "\\=(\\([0-9]+\\),\\([0-9]+\\))" 2 nil))))
+      (find-file fname)          ; redirected below: other window, no select
+      (when +my--target-window
+        ;; Jump to line/column inside the target window itself; the current
+        ;; window's point is untouched.
+        (with-selected-window +my--target-window
+          (goto-char (point-min))
+          (when line (forward-line (1- line)))
+          (when column (move-to-column (1- column)))
+          ;; Redisplay doesn't auto-scroll unselected windows whose point
+          ;; moved out of view, so scroll explicitly when needed.
+          (unless (pos-visible-in-window-p (point) nil t)
+            (recenter)))))))
+
+(defun +my/find-file-at-point-other-window (&optional focus)
+  "Follow the thing at point, navigating ONLY the other window.
 If point is on a Markdown link, follow it (browse external URLs, open
 local files).  If on a bare URL, browse it.  Otherwise treat it as a
 file path (with optional `:line' or `:line:col') and open it in the
-other window, jumping to the line."
-  (interactive)
+other window, jumping to the line.  The current window keeps its buffer,
+point, and selection; with prefix FOCUS (`C-u S-RET'), also select the
+target window, following the cursor into it like the old behavior."
+  (interactive "P")
   ;; markdown-mode.el is NOT autoloaded for `markdown-link-p' /
   ;; `markdown-follow-link-at-point'; require it so links work even
   ;; before any `markdown-mode' buffer has been opened.
   (require 'markdown-mode nil t)
-  ;; Redirect every local-file open to the other window so S-RET never
-  ;; clobbers the current buffer (e.g. a pi chat buffer).  Use `defun!'
-  ;; (cl-letf on the function cell), NOT `defun' (cl-flet, lexical):
-  ;; both `markdown--browse-url' (local Markdown links) and
-  ;; `evil-find-file-at-point-with-line' (ffap, plain paths) reach
-  ;; `find-file' via (funcall ffap-file-finder ...), which a lexical
-  ;; cl-flet can't intercept; the cl-letf binding can.  External URLs go
-  ;; through `browse-url' and are unaffected.  `find-file-other-window'
-  ;; calls `find-file-noselect' (not `find-file'), so there's no recursion.
+  (setq +my--target-window nil)
+  ;; Redirect every local-file open to the other window WITHOUT selecting
+  ;; it, so S-RET neither clobbers the current buffer (e.g. a pi chat
+  ;; buffer) nor drags the cursor out of it.  Use `defun!' (cl-letf on the
+  ;; function cell), NOT `defun' (cl-flet, lexical): both
+  ;; `markdown--browse-url' (local Markdown links) and ffap (plain paths,
+  ;; via `ffap-file-finder') reach `find-file' through its function cell,
+  ;; which a lexical cl-flet can't intercept; the cl-letf binding can.
+  ;; External URLs go through `browse-url' and are unaffected.
+  ;; `find-file-noselect' is not redirected, so there's no recursion.
   (letf! ((defun! find-file (filename &optional wildcards)
-            (find-file-other-window filename wildcards)))
+            (let ((buffer (find-file-noselect filename nil nil wildcards)))
+              (setq +my--target-window (+my--display-in-other-window buffer))
+              buffer)))
     (let ((url (+my--url-at-point)))
       (cond
        ;; Genuine Markdown bracket/angle link (`[t](u)', `[ref]', `<uri>'):
@@ -223,7 +303,10 @@ other window, jumping to the line."
         (browse-url url))
        ;; File path (with optional :line / :line:col)
        (t
-        (evil-find-file-at-point-with-line))))))
+        (+my/find-file-at-point-with-line))))
+    ;; `C-u S-RET': opt back into following the cursor into the target.
+    (when (and focus +my--target-window)
+      (select-window +my--target-window))))
 
 ;; Bind S-RET globally to this function.
 (map! "S-<return>" #'+my/find-file-at-point-other-window)
@@ -405,3 +488,32 @@ ARG is the prefix arg: `C-u' forces pretty on all, `C-u C-u' forces raw."
                    "pi-coding-agent-evil"))
       (load (expand-file-name mod dir) nil t)))
   (message "Pi reloaded (all modules)"))
+
+;; ============================================================================
+;; vterm: SPC o T reuses an existing undisplayed vterm buffer
+;; ============================================================================
+;; Everything here is default Doom behavior, except: `+vterm/here' (SPC o T)
+;; normally spawns a brand-new vterm every time.  Instead, if a full (non-popup)
+;; vterm buffer already exists but isn't displayed in any window, switch to it.
+
+(defun my/vterm-here (&optional arg)
+  "Like `+vterm/here', but reuse an existing undisplayed vterm buffer.
+
+With no prefix ARG: if a vterm buffer (created by SPC o T, i.e. not a
+SPC o t popup) exists and no window is displaying it, switch to it in
+the current window.  Otherwise, exactly `+vterm/here' behavior."
+  (interactive "P")
+  (if-let* ((buf (and (not arg)
+                      (cl-loop for buf in (doom-buffers-in-mode 'vterm-mode)
+                               unless (string-prefix-p "*doom:" (buffer-name buf))
+                               unless (get-buffer-window-list buf nil t)
+                               return buf))))
+      ;; `display-buffer-alist' must be nil'd, else Doom's "^\*vterm" popup
+      ;; rule hijacks the buffer into a side window (same trick +vterm/here
+      ;; uses internally).
+      (let (display-buffer-alist)
+        (pop-to-buffer-same-window buf))
+    (call-interactively #'+vterm/here)))
+
+(map! :leader
+      :desc "Open vterm here (reuse if hidden)" "oT" #'my/vterm-here)
