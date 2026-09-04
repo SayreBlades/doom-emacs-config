@@ -1,7 +1,7 @@
 [submodule "site-lisp/pilish"]
 	path = site-lisp/pilish
-	url = https://github.com/SayreBlades/pi.el.git
-	branch = feature/table-pretty-cell-styling
+	url = https://github.com/dnouri/pi-coding-agent.git
+	branch = master
 [submodule "site-lisp/markdown-table-wrap"]
 	path = site-lisp/markdown-table-wrap
 	url = https://github.com/dnouri/markdown-table-wrap.git

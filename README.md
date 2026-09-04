@@ -56,16 +56,15 @@ config.el, init.el, packages.el   Doom configuration
 site-lisp/table-pretty.el          the pretty-table library (this repo)
 site-lisp/table-pretty.org         table-pretty design notes
 site-lisp/markdown-table-wrap/     vendored fork — table wrapping engine
-site-lisp/pilish/                  vendored fork — Pilish (pi-coding-agent)
+site-lisp/pilish/                  vendored upstream — Pilish (pi-coding-agent)
 ```
 
 ## Submodules
 
-Two submodules point at my public forks (clone recursively to fetch
-them):
+Submodules (clone recursively to fetch them):
 
-- `site-lisp/markdown-table-wrap` — [SayreBlades/markdown-table-wrap](https://github.com/SayreBlades/markdown-table-wrap) (`fix/min-column-width`)
-- `site-lisp/pilish` — [SayreBlades/pi.el](https://github.com/SayreBlades/pi.el) (`feature/table-pretty-cell-styling`)
+- `site-lisp/markdown-table-wrap` — [SayreBlades/markdown-table-wrap](https://github.com/SayreBlades/markdown-table-wrap) (`fix/min-column-width`), my fork carrying a pending PR
+- `site-lisp/pilish` — [dnouri/pi-coding-agent](https://github.com/dnouri/pi-coding-agent) (`master`), upstream
 
 ```sh
 git clone --recursive https://github.com/SayreBlades/doom-emacs-config.git
