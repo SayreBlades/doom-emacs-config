@@ -51,7 +51,7 @@
 ;; ob-mermaid — org-babel support for mermaid diagrams (requires mmdc on PATH)
 (package! ob-mermaid)
 
-;; pi-coding-agent dependencies (from MELPA, explicit recipes for straight.el)
+;; pilish dependencies (from MELPA, explicit recipes for straight.el)
 (package! md-ts-mode
   :recipe (:host github :repo "dnouri/md-ts-mode"))
 ;; markdown-table-wrap is vendored as a submodule at site-lisp/markdown-table-wrap

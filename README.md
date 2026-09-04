@@ -36,14 +36,14 @@ Code spans are extracted first, so their content stays literal
 (``` `**not bold**` ``` renders as `**not bold**`, not folded). Columns
 size to the rendered text, not the raw markup.
 
-## pi-coding-agent integration
+## Pilish (pi-coding-agent) integration
 
-[pi-coding-agent](https://github.com/dnouri/pi-coding-agent) chat tables
+[Pilish](https://github.com/dnouri/pi-coding-agent) chat tables
 are styled by the same `table-pretty-render-inline-spans`, so tables
 look identical in chat and in markdown/org file buffers.
 
-It's a clean dependency inversion: pi exposes a
-`pi-coding-agent-table-cell-render-function` slot (upstream PR
+It's a clean dependency inversion: pilish exposes a
+`pilish-table-cell-render-function` slot (upstream PR
 [#255](https://github.com/dnouri/pi-coding-agent/pull/255), default
 `nil` = its own markdown fontification) and never references
 table-pretty. `table-pretty` opts in via `with-eval-after-load` when
@@ -56,7 +56,7 @@ config.el, init.el, packages.el   Doom configuration
 site-lisp/table-pretty.el          the pretty-table library (this repo)
 site-lisp/table-pretty.org         table-pretty design notes
 site-lisp/markdown-table-wrap/     vendored fork — table wrapping engine
-site-lisp/pi.el/                   vendored fork — pi-coding-agent
+site-lisp/pilish/                  vendored fork — Pilish (pi-coding-agent)
 ```
 
 ## Submodules
@@ -65,7 +65,7 @@ Two submodules point at my public forks (clone recursively to fetch
 them):
 
 - `site-lisp/markdown-table-wrap` — [SayreBlades/markdown-table-wrap](https://github.com/SayreBlades/markdown-table-wrap) (`fix/min-column-width`)
-- `site-lisp/pi.el` — [SayreBlades/pi.el](https://github.com/SayreBlades/pi.el) (`feature/table-pretty-cell-styling`)
+- `site-lisp/pilish` — [SayreBlades/pi.el](https://github.com/SayreBlades/pi.el) (`feature/table-pretty-cell-styling`)
 
 ```sh
 git clone --recursive https://github.com/SayreBlades/doom-emacs-config.git
@@ -75,4 +75,4 @@ git clone --recursive https://github.com/SayreBlades/doom-emacs-config.git
 
 This is a personal config, not a distribution — expect opinionated
 keybindings and assumptions. The vendored upstream packages
-(`markdown-table-wrap`, `pi.el`) are GPL-3.0-or-later.
+(`markdown-table-wrap`, `pilish`) are GPL-3.0-or-later.

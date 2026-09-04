@@ -77,7 +77,7 @@ Paste into any rich-text application and formatting is preserved.
 | =org-mode=                    | =ox-clip= (org HTML exporter) | Full semantic HTML    |
 | =markdown-mode= / =gfm-mode= | =pandoc -f markdown -t html=  | Full semantic HTML    |
 | =md-ts-mode=                  | =pandoc -f markdown -t html=  | Full semantic HTML    |
-| =pi-coding-agent-chat-mode=   | =pandoc -f markdown -t html=  | Full semantic HTML    |
+| =pilish-chat-mode=   | =pandoc -f markdown -t html=  | Full semantic HTML    |
 | Other modes                   | =htmlize= (face capture)      | Best-effort (faces)   |
 
 For markdown and pi-chat, pandoc produces real =<a href>= links, =<table>=
@@ -168,11 +168,11 @@ Default RTF command (macOS):
 textutil -inputencoding UTF-8 -stdin -format html -convert rtf -stdout | pbcopy
 #+end_example
 
-* Interaction with pi-coding-agent
+* Interaction with pilish
 
-In pi chat buffers (=pi-coding-agent-chat-mode=):
+In pi chat buffers (=pilish-chat-mode=):
 
-- The buffer has =pi-coding-agent-copy-raw-markdown= set to =t=, so
+- The buffer has =pilish-copy-raw-markdown= set to =t=, so
   normal =y= copies the raw markdown source (with =**=, backticks,
   fences).
 - =gyr= copies the rendered rich text (bold, links, tables) to paste

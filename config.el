@@ -148,7 +148,7 @@
 ;;   - a bare URL                      → browse in browser
 ;;   - a file path (with optional :line or :line:col) → open in other window
 ;; Useful in pi chat buffers (md-ts-mode) where RET is pi's own
-;; `pi-coding-agent-visit-file' (strict file targets); this complements it
+;; `pilish-visit-file' (strict file targets); this complements it
 ;; by handling external URLs and arbitrary markdown links.
 ;;
 ;; File targets navigate ONLY the other window: the current window keeps
@@ -379,11 +379,11 @@ target window, following the cursor into it like the old behavior."
   :demand t
   :init
   ;; pi chat buffers derive from md-ts-mode but have their own overlay
-  ;; system (pi-coding-agent-table.el); don't let this shadow it.
+  ;; system (pilish-table.el); don't let this shadow it.
   ;; The chat toggle is handled by the dispatch wrapper below.
   (defun my/table-pretty-maybe-enable ()
     "Enable `table-pretty-mode' unless in a pi chat buffer."
-    (unless (derived-mode-p 'pi-coding-agent-chat-mode)
+    (unless (derived-mode-p 'pilish-chat-mode)
       (table-pretty-mode 1)))
   :hook (markdown-mode . table-pretty-mode)
   :hook (md-ts-mode    . my/table-pretty-maybe-enable)
@@ -396,9 +396,9 @@ target window, following the cursor into it like the old behavior."
   ;; span styler into pi's cell-render hook (one-way opt-in; pi itself
   ;; never references this package).  table-pretty.el does this
   ;; automatically via `with-eval-after-load', but be explicit here.
-  (with-eval-after-load 'pi-coding-agent-table
-    (when (boundp 'pi-coding-agent-table-cell-render-function)
-      (setq pi-coding-agent-table-cell-render-function
+  (with-eval-after-load 'pilish-table
+    (when (boundp 'pilish-table-cell-render-function)
+      (setq pilish-table-cell-render-function
             #'table-pretty-render-inline-spans))))
 
 ;; Dispatch wrapper: in pi chat, delegate to pi's own toggle (which uses
@@ -408,13 +408,13 @@ target window, following the cursor into it like the old behavior."
 ;; order between markdown-table-wrap-pretty and pi.
 (defun my/table-pretty-toggle (&optional arg)
   "Toggle pretty table rendering, dispatching by major mode.
-In `pi-coding-agent-chat-mode', use pi's own
-\[pi-coding-agent-toggle-table-pretty] (pi's tree-sitter detection +
+In `pilish-chat-mode', use pi's own
+\[pilish-toggle-table-pretty] (pi's tree-sitter detection +
 overlay system).  Otherwise use `table-pretty-toggle'.
 ARG is the prefix arg: `C-u' forces pretty on all, `C-u C-u' forces raw."
   (interactive "P")
-  (if (derived-mode-p 'pi-coding-agent-chat-mode)
-      (pi-coding-agent-toggle-table-pretty arg)
+  (if (derived-mode-p 'pilish-chat-mode)
+      (pilish-toggle-table-pretty arg)
     (table-pretty-toggle arg)))
 
 ;; One consistent cross-mode doom key: SPC t t (point-aware toggle).
@@ -433,59 +433,59 @@ ARG is the prefix arg: `C-u' forces pretty on all, `C-u C-u' forces raw."
 ;; Vanilla key (documented recommendation; free in both org + markdown):
 (map! :after markdown-mode :map markdown-mode-map "C-c C-x C-k" #'my/table-pretty-toggle)
 (map! :after org           :map org-mode-map       "C-c C-x C-k" #'my/table-pretty-toggle)
-;; Chat (pi): same vanilla key via the dispatch wrapper.  `pi-coding-agent-chat-mode-map'
-;; is defined when `pi-coding-agent-ui' loads.
-(map! :after pi-coding-agent :map pi-coding-agent-chat-mode-map
+;; Chat (pi): same vanilla key via the dispatch wrapper.  `pilish-chat-mode-map'
+;; is defined when `pilish-ui' loads.
+(map! :after pilish :map pilish-chat-mode-map
       "C-c C-x C-k" #'my/table-pretty-toggle)
 
 ;; ============================================================================
-;; pi-coding-agent.el - Emacs frontend for pi coding agent
+;; pilish.el - Emacs frontend for pi coding agent
 ;; ============================================================================
-(use-package! pi-coding-agent
-  ;; Local development copy of pi.el lives in site-lisp
-  :load-path "~/.config/doom/site-lisp/pi.el"
-  ;; Defer loading until the `pi-coding-agent' command is invoked
-  :commands (pi-coding-agent)
+(use-package! pilish
+  ;; Local development copy of Pilish lives in site-lisp
+  :load-path "~/.config/doom/site-lisp/pilish"
+  ;; Defer loading until the `pilish' command is invoked
+  :commands (pilish)
   :init
   ;; Bind SPC o p to launch the pi coding agent
   (map! :leader
-        :desc "Pi coding agent" "o p" #'pi-coding-agent)
+        :desc "Pi coding agent" "o p" #'pilish)
   ;; Copy messages as raw markdown instead of rendered text
-  (setq pi-coding-agent-copy-raw-markdown t)
+  (setq pilish-copy-raw-markdown t)
   ;; Start the input buffer in evil normal state
-  (setq pi-coding-agent-evil-input-state 'normal)
+  (setq pilish-evil-input-state 'normal)
   ;; Launch sessions chat-only and hide the input after each send;
-  ;; reopen it with `i'/`a' (Evil) or M-x pi-coding-agent-open-input.
+  ;; reopen it with `i'/`a' (Evil) or M-x pilish-open-input.
   ;; This subsumes the old `my/pi-send-close-input' advice.
-  (setq pi-coding-agent-input-window-display 'hidden)
+  (setq pilish-input-window-display 'hidden)
   :config
   ;; Mark only the chat buffer as "real" so Doom treats it like a
   ;; regular file buffer.  Leave the input buffer non-real (Doom's
   ;; default) so it behaves like an ephemeral/popup pane.
-  (add-hook 'pi-coding-agent-chat-mode-hook (lambda () (setq doom-real-buffer-p t)))
+  (add-hook 'pilish-chat-mode-hook (lambda () (setq doom-real-buffer-p t)))
   ;; Disable line numbers in chat and input buffers
-  (add-hook 'pi-coding-agent-chat-mode-hook
+  (add-hook 'pilish-chat-mode-hook
             (lambda () (display-line-numbers-mode -1)))
-  (add-hook 'pi-coding-agent-input-mode-hook
+  (add-hook 'pilish-input-mode-hook
             (lambda () (display-line-numbers-mode -1)))
   ;; Show the agent's status header line in chat buffers
-  (add-hook 'pi-coding-agent-chat-mode-hook
+  (add-hook 'pilish-chat-mode-hook
             (lambda () (setq-local header-line-format
-                                   '(:eval (pi-coding-agent--header-line-string))))))
+                                   '(:eval (pilish--header-line-string))))))
 
 (defun pi-reload ()
-  "Reload all pi-coding-agent modules from development directory."
+  "Reload all pilish modules from development directory."
   (interactive)
-  (let ((dir "~/.config/doom/site-lisp/pi.el/"))
-    (dolist (mod '("pi-coding-agent-core"
-                   "pi-coding-agent-grammars"
-                   "pi-coding-agent-ui"
-                   "pi-coding-agent-table"
-                   "pi-coding-agent-render"
-                   "pi-coding-agent-input"
-                   "pi-coding-agent-menu"
-                   "pi-coding-agent"
-                   "pi-coding-agent-evil"))
+  (let ((dir "~/.config/doom/site-lisp/pilish/"))
+    (dolist (mod '("pilish-core"
+                   "pilish-grammars"
+                   "pilish-ui"
+                   "pilish-table"
+                   "pilish-render"
+                   "pilish-input"
+                   "pilish-menu"
+                   "pilish"
+                   "pilish-evil"))
       (load (expand-file-name mod dir) nil t)))
   (message "Pi reloaded (all modules)"))
 

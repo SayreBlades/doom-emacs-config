@@ -1,5 +1,5 @@
-[submodule "site-lisp/pi.el"]
-	path = site-lisp/pi.el
+[submodule "site-lisp/pilish"]
+	path = site-lisp/pilish
 	url = https://github.com/SayreBlades/pi.el.git
 	branch = feature/table-pretty-cell-styling
 [submodule "site-lisp/markdown-table-wrap"]

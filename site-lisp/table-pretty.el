@@ -112,7 +112,7 @@
 (defcustom table-pretty-prettify t
   "Non-nil means render pretty tables with Unicode box-drawing characters.
 Nil means use plain markdown pipes (`|').  Mirrors pi's
-`pi-coding-agent-prettify-tables'."
+`pilish-prettify-tables'."
   :type 'boolean
   :group 'table-pretty)
 
@@ -154,9 +154,9 @@ the fallback where markdown-mode's face is absent (e.g. `org-mode',
   :group 'table-pretty)
 
 (defcustom table-pretty-style-pi-chat t
-  "Non-nil means style pi-coding-agent chat tables via the centralized styler.
-When pi-coding-agent is loaded, plug `table-pretty-render-inline-spans'
-into pi's `pi-coding-agent-table-cell-render-function' so chat tables
+  "Non-nil means style pilish chat tables via the centralized styler.
+When pilish is loaded, plug `table-pretty-render-inline-spans'
+into pi's `pilish-table-cell-render-function' so chat tables
 match markdown/gfm/md-ts/org file tables exactly.  Set to nil to leave
 chat tables at pi's default (markdown fontification).  This is a one-way
 opt-in (table-pretty configures pi); pi itself never references
@@ -367,8 +367,8 @@ for parsing only.  Returns nil when there is no separator or no header."
 (defun table-pretty-render-inline-spans (cell)
   "Render markdown inline spans in CELL for display: drop delimiters, add faces.
 This is the CENTRALIZED table styler — the single source of truth used by
-table-pretty's own renderer AND, when available, by `pi-coding-agent'
-chat tables (see `pi-coding-agent--table-display-groups'), so pretty
+table-pretty's own renderer AND, when available, by `pilish'
+chat tables (see `pilish--table-display-groups'), so pretty
 tables look identical in markdown, gfm, md-ts, org, and pi chat.
 A display-only transform (the canonical CELL is not mutated).
 
@@ -498,19 +498,19 @@ pipe view shows the canonical markdown verbatim (valid source)."
       (table-pretty-render-inline-spans cell)
     cell))
 
-;;;; Optional integration with pi-coding-agent (dependency inversion)
+;;;; Optional integration with pilish (dependency inversion)
 ;;
-;; pi-coding-agent exposes `pi-coding-agent-table-cell-render-function'
+;; pilish exposes `pilish-table-cell-render-function'
 ;; (default nil) so an external styler can render chat table cells WITHOUT
 ;; pi depending on it.  Here table-pretty opts in: when pi is present and
 ;; `table-pretty-style-pi-chat' is non-nil, plug the centralized styler into
 ;; that slot.  pi itself never references table-pretty — the arrow points
 ;; only table-pretty -> pi.
 
-(with-eval-after-load 'pi-coding-agent-table
+(with-eval-after-load 'pilish-table
   (when (and table-pretty-style-pi-chat
-             (boundp 'pi-coding-agent-table-cell-render-function))
-    (setq pi-coding-agent-table-cell-render-function
+             (boundp 'pilish-table-cell-render-function))
+    (setq pilish-table-cell-render-function
           #'table-pretty-render-inline-spans)))
 
 (defun table-pretty--render-row-lines (cells col-widths aligns)

@@ -74,16 +74,16 @@ Returns \"markdown\", \"org\", or \"markdown\" as fallback."
    ((derived-mode-p 'markdown-mode) "markdown")  ; covers gfm-mode
    ((eq major-mode 'md-ts-mode) "markdown")
    ;; pi-chat derives from md-ts-mode
-   ((derived-mode-p 'pi-coding-agent-chat-mode) "markdown")
+   ((derived-mode-p 'pilish-chat-mode) "markdown")
    (t "markdown")))
 
 (defun yank-rich--raw-text (beg end)
   "Return the raw buffer text between BEG and END.
-In pi-chat buffers with `pi-coding-agent-copy-raw-markdown' active,
+In pi-chat buffers with `pilish-copy-raw-markdown' active,
 uses the filter to get the raw markdown source.  Otherwise returns
 `buffer-substring-no-properties'."
-  (if (and (derived-mode-p 'pi-coding-agent-chat-mode)
-           (bound-and-true-p pi-coding-agent-copy-raw-markdown))
+  (if (and (derived-mode-p 'pilish-chat-mode)
+           (bound-and-true-p pilish-copy-raw-markdown))
       ;; The filter function returns raw markdown (stripping render props).
       (funcall filter-buffer-substring-function beg end nil)
     (buffer-substring-no-properties beg end)))
@@ -123,7 +123,7 @@ other modes."
     (message "Yanked rich (org → RTF)"))
    ((or (derived-mode-p 'markdown-mode)
         (eq major-mode 'md-ts-mode)
-        (derived-mode-p 'pi-coding-agent-chat-mode))
+        (derived-mode-p 'pilish-chat-mode))
     (let* ((raw (yank-rich--raw-text beg end))
            (html (with-temp-buffer
                    (insert raw)
