@@ -458,6 +458,16 @@ ARG is the prefix arg: `C-u' forces pretty on all, `C-u C-u' forces raw."
   ;; reopen it with `i'/`a' (Evil) or M-x pilish-open-input.
   ;; This subsumes the old `my/pi-send-close-input' advice.
   (setq pilish-input-window-display 'hidden)
+  ;; --- omp backend trial (Phase 0, see .scratch/PILISH-OMP-PLAN.md) ---
+  ;; omp has no --approve/--no-approve flags; pi's flag would kill the
+  ;; process at startup (exit 2).  `default' passes no trust flag.
+  ;; NOTE: omp has no project-trust gate at all - project-local omp
+  ;; resources are always active (behavioral difference vs pi --approve).
+  (setq pilish-project-trust-policy 'default)
+  ;; Use omp ("Oh My Pi", a pi-lineage fork) as the RPC backend.
+  ;; Known gaps on omp: model picker (C-c C-m) fails, slash-command menu
+  ;; empty, fork unsupported, session browser needs Phase 1 root fix.
+  (setq pilish-executable '("omp"))
   :config
   ;; Mark only the chat buffer as "real" so Doom treats it like a
   ;; regular file buffer.  Leave the input buffer non-real (Doom's
@@ -488,6 +498,21 @@ ARG is the prefix arg: `C-u' forces pretty on all, `C-u C-u' forces raw."
                    "pilish-evil"))
       (load (expand-file-name mod dir) nil t)))
   (message "Pi reloaded (all modules)"))
+
+(defun my/pilish-toggle-backend (&optional arg)
+  "Toggle the pilish RPC backend between omp and pi.
+With prefix ARG, force pi.  New sessions pick up the change; running
+sessions keep their current process.  See .scratch/PILISH-OMP-PLAN.md."
+  (interactive "P")
+  (setq pilish-executable
+        (if arg '("pi")
+          (if (equal (car pilish-executable) "omp") '("pi") '("omp"))))
+  ;; pi supports --approve, omp does not; keep the policy compatible
+  ;; with whichever backend is active.
+  (setq pilish-project-trust-policy
+        (if (equal (car pilish-executable) "omp") 'default 'approve))
+  (message "pilish backend: %s (trust policy: %s)"
+           (car pilish-executable) pilish-project-trust-policy))
 
 ;; ============================================================================
 ;; vterm: SPC o T reuses an existing undisplayed vterm buffer
