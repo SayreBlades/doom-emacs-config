@@ -55,7 +55,7 @@ both are loaded. Disable with `table-pretty-style-pi-chat = nil`.
 config.el, init.el, packages.el   Doom configuration
 site-lisp/table-pretty.el          the pretty-table library (this repo)
 site-lisp/table-pretty.org         table-pretty design notes
-site-lisp/markdown-table-wrap/     vendored fork — table wrapping engine
+site-lisp/markdown-table-wrap/     vendored upstream — table wrapping engine
 site-lisp/pilish/                  vendored upstream — Pilish (pi-coding-agent)
 ```
 
@@ -63,7 +63,7 @@ site-lisp/pilish/                  vendored upstream — Pilish (pi-coding-agent
 
 Submodules (clone recursively to fetch them):
 
-- `site-lisp/markdown-table-wrap` — [SayreBlades/markdown-table-wrap](https://github.com/SayreBlades/markdown-table-wrap) (`fix/min-column-width`), my fork carrying a pending PR
+- `site-lisp/markdown-table-wrap` — [dnouri/markdown-table-wrap](https://github.com/dnouri/markdown-table-wrap) (`main`), upstream
 - `site-lisp/pilish` — [dnouri/pi-coding-agent](https://github.com/dnouri/pi-coding-agent) (`master`), upstream
 
 ```sh
