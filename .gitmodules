@@ -6,3 +6,6 @@
 	path = site-lisp/markdown-table-wrap
 	url = https://github.com/dnouri/markdown-table-wrap.git
 	branch = main
+[submodule "site-lisp/sayre-ai-doom"]
+	path = site-lisp/sayre-ai-doom
+	url = git@github.com:SayreBlades/sayre-ai-doom.git
