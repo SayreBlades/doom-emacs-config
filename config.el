@@ -335,88 +335,66 @@ target window, following the cursor into it like the old behavior."
 ;; turn off the "really quit emacs" prompt when closing emacs
 (setq confirm-kill-emacs nil)
 
-;; remove compile output from popups (SPC c c) -> use full window instead
+;; Full-window file/buffer switching ------------------------------------------
 ;;
-;; NOTE: deliberately NOT wrapped in `(after! popup ...)'.  In this Doom
-;; version (doom+ / v3 core) the :ui popup module is `doom-load'ed as a plain
-;; file and never `(provide 'popup)'s, so an `after! popup' block silently
-;; never runs -- these :ignore rules were dead code until now.  $DOOMDIR's
-;; config.el is loaded after all module configs, so top-level calls land
-;; after the popup module's own rules (and take precedence, since
-;; `set-popup-rule!' pushes to the front of `+popup--display-buffer-alist').
+;; Two mechanisms: (1) vertico-multiform shows the find-file / buffer-switch
+;; pickers in the selected window (ivy-style) instead of the minibuffer
+;; strip at the bottom; (2) `switch-to-buffer' advice makes the chosen
+;; buffer land like find-file, in a full window -- never a popup side
+;; window, never a dedicated helper window (e.g. pilish's input window).
+;;
+;; Do NOT wrap the popup parts in `(after! popup ...)': this Doom version
+;; never provides the `popup' feature, so `after! popup' blocks silently
+;; never run.  config.el loads after all module configs, so top-level is
+;; correct (and `set-popup-rule!' entries take precedence over Doom's).
 (when (modulep! :ui popup)
+  ;; compilation / vterm / plantuml: full windows, never popups (SPC c c)
   (set-popup-rule! "^\\*compilation\\*" :ignore t)
   (set-popup-rule! "^\\*vterm\\*" :ignore t)
-  (set-popup-rule! "^\\*PLANTUML" :ignore t))
+  (set-popup-rule! "^\\*PLANTUML" :ignore t)
 
-;; switch-to-buffer / persp-switch-to-buffer (SPC < and SPC ,): never popups.
-;; The chosen buffer should behave like find-file: take over the current
-;; window.  Two things defeat that:
-;;   1. A popup rule matching the buffer's name captures it into a side
-;;      window via the display-buffer machinery.
-;;   2. A buffer last seen in a popup still carries buffer-local
-;;      `+popup-buffer-mode' (hidden modeline, q/C-g close it), so it keeps
-;;      "popup mode" even in a normal window.
-;; Voiding `display-buffer-alist' for the duration is the same trick
-;; `+popup/raise' uses; advising `switch-to-buffer' alone covers both
-;; commands because `persp-switch-to-buffer' calls it internally.
-(defun my/switch-to-buffer-no-popup-a (fn &rest args)
-  "Call switch-buffer command FN with Doom's popup system neutralized.
-The target buffer displays in the current window rather than a popup
-side window, and any lingering `+popup-buffer-mode' is cleared from it
-afterwards.
-
-Also never land the buffer in a dedicated helper window (Doom popup
-windows, pilish's input window, which is soft-dedicated to 'side).
-When switching from one, first select the largest regular window so
-the chosen buffer gets a full window."
-  (unless (window-minibuffer-p)
-    (when (window-dedicated-p (selected-window))
-      (when-let* ((better
-                   (car (cl-sort
-                         (cl-remove-if
-                          (lambda (w) (or (window-dedicated-p w)
-                                          (window-minibuffer-p w)))
-                          (window-list (selected-frame)))
-                         #'> :key (lambda (w) (* (window-total-width w)
-                                                 (window-total-height w)))))))
-        (select-window better))))
-  (let (display-buffer-alist)
-    (apply fn args))
-  ;; Only demote buffers not actually sitting in a popup window (so popup
-  ;; restores/workspace loads are unaffected).
-  (when (and (bound-and-true-p +popup-buffer-mode)
-             (not (+popup-window-p)))
-    (+popup-buffer-mode -1)))
-
-;; NOT `(after! popup ...)': as noted above, the popup module never provides
-;; the `popup' feature in this Doom version, so that block never fires (only
-;; the unrelated MELPA `popup.el' package provides it).  config.el already
-;; loads after the popup module, so register the advice at top level.
-(when (modulep! :ui popup)
+  (defun my/switch-to-buffer-no-popup-a (fn &rest args)
+    "Make `switch-to-buffer' land its buffer in a full, regular window.
+If switching from a dedicated helper window, first select the largest
+regular window.  Popup rules are neutralized for the duration (same
+trick as `+popup/raise'), and any lingering buffer-local
+`+popup-buffer-mode' (hidden modeline, q/C-g closes) is turned off."
+    (when (and (not (window-minibuffer-p))
+               (window-dedicated-p (selected-window)))
+      (when-let* ((better (cl-find-if
+                           (lambda (w) (not (or (window-dedicated-p w)
+                                               (window-minibuffer-p w))))
+                           (cl-sort (window-list (selected-frame))
+                                    #'> :key (lambda (w) (* (window-total-width w)
+                                                            (window-total-height w)))))))
+        (select-window better)))
+    (let (display-buffer-alist)
+      (apply fn args))
+    (when (and (bound-and-true-p +popup-buffer-mode)
+               (not (+popup-window-p)))
+      (+popup-buffer-mode -1)))
   (advice-add #'switch-to-buffer :around #'my/switch-to-buffer-no-popup-a))
 
-;; find-file / buffer-switch pickers as full windows (ivy-style), not the
-;; small minibuffer strip at the bottom.  vertico-multiform switches just
-;; these commands to vertico-buffer-mode, and the candidates buffer is
-;; displayed in the selected window; the prompt is drawn inside it
-;; (`vertico-buffer-hide-prompt' defaults to t).  Picking or aborting
-;; restores the window, then the chosen file/buffer takes it over.
-;;
-;; NOTE: the `switch-to-buffer'/`persp-switch-to-buffer' entries only apply
-;; when those commands run directly.  Doom's vertico module REMAPS them
-;; (SPC < actually runs `consult-buffer', SPC , runs
-;; `+vertico/switch-workspace-buffer'), so those real commands must be
-;; registered too.
+;; Full-window pickers for ALL file/buffer prompts.  Explicit entries for
+;; commands whose completion lacks a usable category (projectile, and the
+;; remapped switchers: SPC < actually runs `consult-buffer', SPC , runs
+;; `+vertico/switch-workspace-buffer'); category entries sweep up everything
+;; else -- every find-file variant, recent files, locate, ffap, TRAMP, and
+;; all buffer prompts.
 (after! vertico
   (require 'vertico-buffer)
   (setq vertico-buffer-display-action '(display-buffer-same-window))
   (dolist (cmd '(find-file projectile-find-file
                  switch-to-buffer persp-switch-to-buffer
                  consult-buffer consult-buffer-other-window
-                 +vertico/switch-workspace-buffer))
-    (add-to-list 'vertico-multiform-commands (list cmd 'buffer))))
-
+                 +vertico/switch-workspace-buffer
+                 +default/find-file-under-here
+                 doom/find-file-in-emacsd
+                 doom/find-file-in-other-project
+                 project-find-file))
+    (add-to-list 'vertico-multiform-commands (list cmd 'buffer)))
+  (dolist (cat '(file buffer project-file))
+    (add-to-list 'vertico-multiform-categories (list cat 'buffer))))
 ;; associate .puml files with plantuml-mode
 (add-to-list 'auto-mode-alist '("\\.puml\\'" . plantuml-mode))
 
