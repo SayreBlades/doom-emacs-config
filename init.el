@@ -202,4 +202,5 @@
        yank-rich
        table-pretty
        diagrams
-       pilish)
+       pilish
+       vterm)

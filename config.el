@@ -298,12 +298,6 @@ target window, following the cursor into it like the old behavior."
 ;; Bind S-RET globally to this function.
 (map! "S-<return>" #'+my/find-file-at-point-other-window)
 
-;; vterm captures all keys; re-bind S-RET there too.
-(after! vterm
-  (map! :map vterm-mode-map
-        "S-<return>" #'+my/find-file-at-point-other-window))
-
-
 ;; dired-mode configs
 ;;
 ;; turn off dired-omit-mode by default, to display '.' and '..' files
@@ -332,8 +326,7 @@ target window, following the cursor into it like the old behavior."
 ;; after the popup module's own rules (and take precedence, since
 ;; `set-popup-rule!' pushes to the front of `+popup--display-buffer-alist').
 (when (modulep! :ui popup)
-  (set-popup-rule! "^\\*compilation\\*" :ignore t)
-  (set-popup-rule! "^\\*vterm\\*" :ignore t))
+  (set-popup-rule! "^\\*compilation\\*" :ignore t))
 
 ;; switch-to-buffer / persp-switch-to-buffer (SPC < and SPC ,): never popups.
 ;; The chosen buffer should behave like find-file: take over the current
@@ -405,32 +398,3 @@ the chosen buffer gets a full window."
 
 ;; maximize emacs on startup
 (add-to-list 'initial-frame-alist '(fullscreen . maximized))
-
-;; ============================================================================
-;; vterm: SPC o T reuses an existing undisplayed vterm buffer
-;; ============================================================================
-;; Everything here is default Doom behavior, except: `+vterm/here' (SPC o T)
-;; normally spawns a brand-new vterm every time.  Instead, if a full (non-popup)
-;; vterm buffer already exists but isn't displayed in any window, switch to it.
-
-(defun my/vterm-here (&optional arg)
-  "Like `+vterm/here', but reuse an existing undisplayed vterm buffer.
-
-With no prefix ARG: if a vterm buffer (created by SPC o T, i.e. not a
-SPC o t popup) exists and no window is displaying it, switch to it in
-the current window.  Otherwise, exactly `+vterm/here' behavior."
-  (interactive "P")
-  (if-let* ((buf (and (not arg)
-                      (cl-loop for buf in (doom-buffers-in-mode 'vterm-mode)
-                               unless (string-prefix-p "*doom:" (buffer-name buf))
-                               unless (get-buffer-window-list buf nil t)
-                               return buf))))
-      ;; `display-buffer-alist' must be nil'd, else Doom's "^\*vterm" popup
-      ;; rule hijacks the buffer into a side window (same trick +vterm/here
-      ;; uses internally).
-      (let (display-buffer-alist)
-        (pop-to-buffer-same-window buf))
-    (call-interactively #'+vterm/here)))
-
-(map! :leader
-      :desc "Open vterm here (reuse if hidden)" "oT" #'my/vterm-here)
