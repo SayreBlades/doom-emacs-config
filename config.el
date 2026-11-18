@@ -424,24 +424,6 @@ the chosen buffer gets a full window."
 (add-to-list 'initial-frame-alist '(fullscreen . maximized))
 
 ;; ============================================================================
-;; yank-rich: multi-format yank — rich (RTF), plain (stripped)
-;; Visual select text, then `gy r` for rich or `gy p` for plain.
-;; Normal `y`/`Y` are undisturbed (raw markdown / default yank).
-;; ============================================================================
-(use-package! yank-rich
-  :load-path "~/.config/doom/site-lisp"
-  :commands (yank-rich yank-plain)
-  :init
-  ;; `gy` prefix with which-key labels; works as evil operators (visual + motions)
-  (map! :nv "gy" nil)  ; clear Doom's default gy (yank-unindented)
-  (map! :nv "gyr" #'yank-rich
-        :nv "gyp" #'yank-plain)
-  (which-key-add-key-based-replacements
-    "gy"  "yank-as…"
-    "gyr" "rich (RTF)"
-    "gyp" "plain (stripped)"))
-
-;; ============================================================================
 ;; markdown-table-wrap-pretty — display-only pretty rendering of pipe tables
 ;; with toggle (markdown / gfm / md-ts / org).  Display companion shipped in
 ;; the vendored markdown-table-wrap submodule (branch feat/pretty-display).

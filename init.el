@@ -195,4 +195,8 @@
 
        :config
        ;;literate
-       (default +bindings +smartparens))
+       (default +bindings +smartparens)
+
+       ;; Personal bindings must load after Doom's default prefix maps.
+       :sayre
+       yank-rich)
