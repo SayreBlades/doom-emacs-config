@@ -201,4 +201,5 @@
        :sayre
        yank-rich
        table-pretty
-       diagrams)
+       diagrams
+       pilish)

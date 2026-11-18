@@ -1,4 +1,4 @@
 [submodule "site-lisp/pilish"]
-	path = site-lisp/pilish
+	path = sources/pilish
 	url = https://github.com/dnouri/pi-coding-agent.git
 	branch = master
