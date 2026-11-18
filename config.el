@@ -53,26 +53,13 @@
   (setq org-modern-fold-stars
         '(("▶" . "▼") ("▷" . "▽") ("▸" . "▾") ("▹" . "▿") ("▸" . "▾"))))
 
-;; ob-mermaid — org-babel execution for mermaid diagrams
-;; Requires: npm install -g @mermaid-js/mermaid-cli (provides mmdc)
+;; General Org preferences are independent of the personal diagrams module.
 (after! org
-  (require 'ob-mermaid)
-  (setq ob-mermaid-cli-path "/opt/homebrew/bin/mmdc")
   ;; Disable org-element cache — avoids intermittent parser errors
   ;; (wrong-type-argument integer-or-marker-p nil) on large files.
   (setq org-element-use-cache nil)
-
   ;; Show inline images by default when opening org files.
-  (setq org-startup-with-inline-images t)
-
-  ;; Auto-fold plantuml and mermaid source blocks on file open.
-  (defun +org/fold-diagram-src-blocks ()
-    "Fold all plantuml/mermaid src blocks in the current buffer."
-    (org-babel-map-src-blocks nil
-      (let ((lang (org-element-property :language (org-element-at-point))))
-        (when (member lang '("plantuml" "mermaid"))
-          (org-hide-block-toggle t)))))
-  (add-hook 'org-mode-hook #'+org/fold-diagram-src-blocks 'append))
+  (setq org-startup-with-inline-images t))
 
 
 ;; Whenever you reconfigure a package, make sure to wrap your config in an
@@ -346,8 +333,7 @@ target window, following the cursor into it like the old behavior."
 ;; `set-popup-rule!' pushes to the front of `+popup--display-buffer-alist').
 (when (modulep! :ui popup)
   (set-popup-rule! "^\\*compilation\\*" :ignore t)
-  (set-popup-rule! "^\\*vterm\\*" :ignore t)
-  (set-popup-rule! "^\\*PLANTUML" :ignore t))
+  (set-popup-rule! "^\\*vterm\\*" :ignore t))
 
 ;; switch-to-buffer / persp-switch-to-buffer (SPC < and SPC ,): never popups.
 ;; The chosen buffer should behave like find-file: take over the current
@@ -416,9 +402,6 @@ the chosen buffer gets a full window."
                  consult-buffer consult-buffer-other-window
                  +vertico/switch-workspace-buffer))
     (add-to-list 'vertico-multiform-commands (list cmd 'buffer))))
-
-;; associate .puml files with plantuml-mode
-(add-to-list 'auto-mode-alist '("\\.puml\\'" . plantuml-mode))
 
 ;; maximize emacs on startup
 (add-to-list 'initial-frame-alist '(fullscreen . maximized))

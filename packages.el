@@ -47,6 +47,3 @@
 ;; (unpin! pinned-package another-pinned-package)
 ;; ...Or *all* packages (NOT RECOMMENDED; will likely break things)
 ;; (unpin! t)
-
-;; ob-mermaid — org-babel support for mermaid diagrams (requires mmdc on PATH)
-(package! ob-mermaid)

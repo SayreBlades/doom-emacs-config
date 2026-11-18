@@ -200,4 +200,5 @@
        ;; Personal bindings must load after Doom's default prefix maps.
        :sayre
        yank-rich
-       table-pretty)
+       table-pretty
+       diagrams)
