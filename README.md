@@ -134,6 +134,10 @@ DOOM_REFACTOR_BASELINE_DIR=/private/backup/doom tests/run-refactor-tests.sh
 tests/run-cold-start-check.sh
 # Portable libraries, from the independent authoring clone:
 /path/to/emacs-world/tests/run-tests.sh
+# Optional macOS conversion probes; set BUILD to the active Straight build dir.
+# These capture RTF in temp files and never overwrite the system clipboard.
+emacs -Q --batch -L "$BUILD/yank-rich" -L "$BUILD/htmlize" -L "$BUILD/ox-clip" \
+  -l tests/macos-copy-check.el -f ert-run-tests-batch-and-exit
 ```
 
 Cold checks cover effective leader targets before/after Markdown and Org load,
@@ -144,8 +148,9 @@ reuse/prefix logic. The real cold source-reload probe is
 `tests/source-reload-check.el`; run it in `emacs -Q --batch` with Pilish's declared
 dependency directories on `load-path` (without requiring Pilish first).
 
-These do not replace live RTF application/clipboard, chat/UI, diagram-window and
-terminal-focus checks. Keep those pending until actually exercised. Compare
+The macOS probes use real pandoc/textutil, Org/ox-clip and htmlize conversions,
+but redirect the clipboard destination to disposable files. These do not replace
+live RTF application/clipboard, chat/UI, diagram-window and terminal-focus checks. Keep those pending until actually exercised. Compare
 `doom doctor` warnings against the baseline rather than attributing existing
 machine/tool warnings to this refactor.
 
