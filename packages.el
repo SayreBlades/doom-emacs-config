@@ -50,14 +50,3 @@
 
 ;; ob-mermaid — org-babel support for mermaid diagrams (requires mmdc on PATH)
 (package! ob-mermaid)
-
-;; pilish dependencies (from MELPA, explicit recipes for straight.el)
-(package! md-ts-mode
-  ;; Prerequisite: Pilish 3.4.5 requires md-ts-mode >= 0.5.0.
-  :pin "769ef52965c46e9346bf19d04adc6fef9d23b01c"
-  :recipe (:host github :repo "dnouri/md-ts-mode"))
-;; markdown-table-wrap is vendored as a submodule at site-lisp/markdown-table-wrap
-;; (fork branch fix/min-column-width, PR #5 pending upstream) rather than via
-;; straight, so the empty-column min-width fix is live for table-pretty and pi
-;; chat.  Revert to the MELPA recipe once PR #5 merges upstream.
-;; (package! markdown-table-wrap :recipe (:host github :repo "dnouri/markdown-table-wrap"))

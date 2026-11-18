@@ -1,4 +1,4 @@
-;; -*- no-byte-compile: t; -*-
+;; -*- lexical-binding: t; no-byte-compile: t; -*-
 ;;; modules/sayre/yank-rich/packages.el -*- lexical-binding: t; -*-
 ;;; Personal rich/plain yank module.  yank-rich and table-pretty share one
 ;;; checkout (SayreBlades/emacs-world), pinned by modules/sayre/pins.el —
