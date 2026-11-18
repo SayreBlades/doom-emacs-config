@@ -46,6 +46,12 @@
       (cl-assert (file-exists-p
                   (expand-file-name "table-pretty.elc"
                                     (file-name-directory (locate-library "table-pretty"))))))
+    ;; These are normal md-ts prerequisites, not installed by this test.
+    ;; Fail clearly instead of waiting at an interactive grammar prompt.
+    (require 'treesit)
+    (dolist (language '(markdown markdown-inline))
+      (cl-assert (treesit-language-available-p language) nil
+                 "Install the %s tree-sitter grammar before cold checks" language))
     ;; Loading representative major modes must not replace personal keys.
     (dolist (mode '(markdown-mode gfm-mode md-ts-mode org-mode))
       (funcall mode)
@@ -115,6 +121,11 @@
       (cl-assert (equal pilish-executable '("pi")))
       (cl-assert (eq pilish-project-trust-policy 'approve)))
     (when (>= phase 5)
+      ;; Doom can add the package directory lazily when vterm is required.
+      (cl-assert (locate-file "vterm-module"
+                              (list (file-name-directory (locate-library "vterm")))
+                              (get-load-suffixes)) nil
+                 "Build vterm's native module before cold checks (M-x vterm-module-compile)")
       (require 'vterm)
       (cl-assert (eq (lookup-key vterm-mode-map (kbd "S-<return>"))
                      '+my/find-file-at-point-other-window))

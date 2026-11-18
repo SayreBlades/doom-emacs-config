@@ -8,4 +8,4 @@ cd "$DOOM_DIR"
 
 # Optional baseline override for the preservation tests:
 #   DOOM_REFACTOR_BASELINE_DIR=/path/to/backup/doom tests/run-refactor-tests.sh
-exec emacs -Q --batch -l tests/refactor-tests.el -f ert-run-tests-batch-and-exit "$@"
+exec "${EMACS:-emacs}" -Q --batch -l tests/refactor-tests.el -f ert-run-tests-batch-and-exit "$@"

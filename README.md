@@ -50,12 +50,22 @@ message. The source path is derived from `doom-user-dir` in
 `modules/sayre/pilish/shared.el`, shared by the manifest, diagnostics and reload.
 Straight does not update this checkout. Its branch, inner edits, refs and stashes
 remain yours; a parent Git commit does not back up uncommitted child work.
+The bootstrap commands are for a **fresh clone**. In an existing development
+checkout, inspect its branch, HEAD and work before any `git submodule update`:
+your local branch may intentionally be ahead of the parent's recorded gitlink.
+Do not replace that checked-out revision blindly.
 
 This profile expects the existing Doom Evil, Markdown, Org, PlantUML, popup and
 vterm modules. External programs include `pi`, `pandoc`, macOS `textutil`/`pbcopy`,
 and `/opt/homebrew/bin/mmdc` (`npm install -g @mermaid-js/mermaid-cli`). Mermaid's
 exact executable is shared by runtime and doctor in `diagrams/shared.el`.
 Org rich copying uses ox-clip's separate platform clipboard configuration.
+As with the original profile, md-ts/Pilish need compatible Markdown tree-sitter
+grammars (`M-x pilish-install-grammars`); optional language grammars are separate.
+Vterm needs its native module built with CMake (normally offered on first use).
+The cold-check driver expects those prerequisites already installed; it does
+not answer installation prompts. Set `EMACSDIR=/path/to/doom-emacs` when the Doom
+installation is not the configuration directory's sibling `emacs/`.
 
 ## Commands and behavior
 
