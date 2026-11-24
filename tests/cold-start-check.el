@@ -2,6 +2,20 @@
 
 ;; Run with tests/run-cold-start-check.sh, never in the user's server.
 (require 'cl-lib)
+
+;; Exercise Vertico's deferred startup with no extensions preloaded.  The
+;; full-window picker config must load multiform before adding its commands.
+(vertico-mode +1)
+(cl-assert (featurep 'vertico-multiform))
+(cl-assert vertico-multiform-mode)
+(cl-assert (equal vertico-buffer-display-action '(display-buffer-same-window)))
+(dolist (command '(find-file projectile-find-file
+                   switch-to-buffer persp-switch-to-buffer
+                   consult-buffer consult-buffer-other-window
+                   +vertico/switch-workspace-buffer))
+  (cl-assert (equal (alist-get command vertico-multiform-commands) '(buffer))
+             nil "Missing full-window picker config for %S" command))
+
 (require 'evil)
 (evil-mode 1)
 

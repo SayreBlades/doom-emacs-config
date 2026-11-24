@@ -106,6 +106,9 @@
  ;; ns-control-modifier 'meta   ; Uncomment to make Control key → Meta
  )
 
+;; Allow Cmd+V / Ctrl+V (including Handy's paste) in Evil Insert mode.
+(map! :i "C-v" #'clipboard-yank)
+
 ;; kill evil snipe mode
 (remove-hook 'doom-first-input-hook #'evil-snipe-mode)
 
@@ -388,7 +391,11 @@ the chosen buffer gets a full window."
 ;; `+vertico/switch-workspace-buffer'), so those real commands must be
 ;; registered too.
 (after! vertico
+  ;; Multiform is a separate extension; loading Vertico alone doesn't define
+  ;; `vertico-multiform-commands' or enable per-command display modes.
+  (require 'vertico-multiform)
   (require 'vertico-buffer)
+  (vertico-multiform-mode +1)
   (setq vertico-buffer-display-action '(display-buffer-same-window))
   (dolist (cmd '(find-file projectile-find-file
                  switch-to-buffer persp-switch-to-buffer
