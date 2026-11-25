@@ -201,6 +201,7 @@
        :sayre
        yank-rich
        table-pretty
+       quota-axi
        diagrams
        pilish
        vterm)

@@ -3,7 +3,7 @@
 ;; Both libraries share one repository checkout and must advance together.
 ;; Publish/test the authoring clone first, change this pin, then plain doom sync.
 (defconst +sayre-emacs-world-revision
-  "b3a8137e1c60af266ef0beaaebacb5d8c1d51ca5")
+  "300edc16c498a619310f075a31c6ae808b24ef8d")
 ;; Pilish 3.4.5 requires md-ts-mode >= 0.5.0 (validated prerequisite).
 (defconst +sayre-md-ts-revision
   "769ef52965c46e9346bf19d04adc6fef9d23b01c")
